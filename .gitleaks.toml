@@ -1,0 +1,119 @@
+# GitLeaks configuration for photonic neuromorphics project
+# https://github.com/gitleaks/gitleaks
+
+title = "GitLeaks Config for Photonic Neuromorphics"
+
+[[rules]]
+description = "AWS Access Key"
+id = "aws-access-key"
+regex = '''(A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+keywords = [
+    "aws_access_key",
+    "aws_access_key_id",
+    "access_key_id",
+]
+
+[[rules]]
+description = "AWS Secret Key"
+id = "aws-secret-key"
+regex = '''[A-Za-z0-9/+=]{40}'''
+keywords = [
+    "aws_secret_access_key",
+    "secret_access_key",
+]
+
+[[rules]]
+description = "GitHub Personal Access Token"
+id = "github-pat"
+regex = '''ghp_[0-9a-zA-Z]{36}'''
+keywords = [
+    "github_token",
+    "gh_token",
+    "github_pat",
+]
+
+[[rules]]
+description = "GitHub OAuth Access Token"
+id = "github-oauth"
+regex = '''gho_[0-9a-zA-Z]{36}'''
+
+[[rules]]
+description = "SSH Private Key"
+id = "ssh-private-key"
+regex = '''-----BEGIN OPENSSH PRIVATE KEY-----'''
+
+[[rules]]
+description = "RSA Private Key"
+id = "rsa-private-key"
+regex = '''-----BEGIN RSA PRIVATE KEY-----'''
+
+[[rules]]
+description = "Generic API Key"
+id = "api-key"
+regex = '''(?i)(api[_-]?key|apikey)\s*[:=]\s*['"]?[0-9a-zA-Z\-_]{32,}['"]?'''
+keywords = [
+    "api_key",
+    "apikey",
+    "api-key",
+]
+
+[[rules]]
+description = "Generic Secret"
+id = "generic-secret"
+regex = '''(?i)(secret|password|pwd|token)\s*[:=]\s*['"][0-9a-zA-Z\-_]{8,}['"]'''
+keywords = [
+    "secret",
+    "password",
+    "token",
+    "pwd",
+]
+
+[[rules]]
+description = "PyPI Token"
+id = "pypi-token"
+regex = '''pypi-[A-Za-z0-9_]{64,}'''
+keywords = [
+    "pypi",
+    "pypi_token",
+]
+
+[[rules]]
+description = "Slack Token"
+id = "slack-token"
+regex = '''xox[baprs]-[0-9a-zA-Z\-]{10,}'''
+keywords = [
+    "slack_token",
+    "slack_webhook",
+]
+
+# Allowlist configuration
+[allowlist]
+description = "Allowlist certain patterns"
+regexes = [
+    '''(?i)example\.com''',  # Example domains
+    '''(?i)localhost''',     # Localhost references
+    '''(?i)127\.0\.0\.1''',  # Local IP
+    '''(?i)test[_-]?(key|token|secret)''',  # Test credentials
+    '''(?i)dummy[_-]?(key|token|secret)''', # Dummy credentials
+    '''(?i)fake[_-]?(key|token|secret)''',  # Fake credentials
+    '''(?i)mock[_-]?(key|token|secret)''',  # Mock credentials
+]
+
+paths = [
+    '''gitleaks\.toml''',
+    '''\.gitleaks\.toml''',
+    '''(.*?)(jpg|gif|doc|pdf|bin)$''',
+]
+
+# Exclude specific files/paths
+[[rules]]
+description = "Ignore test fixtures"
+id = "test-fixture-ignore"
+path = '''tests/fixtures/.*'''
+regex = '''.*'''
+
+[[rules]]
+description = "Ignore documentation examples"
+id = "docs-example-ignore"
+path = '''docs/.*\.md'''
+regex = '''(?i)(secret|password|token)'''

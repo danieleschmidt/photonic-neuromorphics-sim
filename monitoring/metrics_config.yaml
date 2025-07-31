@@ -1,0 +1,353 @@
+# Metrics collection configuration for photonic neuromorphics simulation
+# Compatible with OpenTelemetry and Prometheus
+
+metrics:
+  collection_interval: 30  # seconds
+  export_timeout: 10000   # milliseconds
+  max_export_batch_size: 512
+  
+  # Metric naming conventions
+  namespace: "photonic_neuromorphics"
+  subsystem_prefix: true
+  
+  # Resource attributes
+  resource_attributes:
+    service.name: "photonic-neuromorphics-sim"
+    service.version: "0.1.0"
+    service.namespace: "terragon"
+    deployment.environment: "${ENVIRONMENT:-development}"
+
+# Performance metrics
+performance:
+  # Simulation metrics
+  simulation_duration:
+    name: "simulation_duration_seconds"
+    type: "histogram"
+    description: "Time taken for photonic simulation"
+    unit: "s"
+    buckets: [0.001, 0.01, 0.1, 1.0, 10.0, 60.0, 300.0]
+    labels:
+      - model_type
+      - neuron_count
+      - simulation_duration
+  
+  inference_latency:
+    name: "inference_latency_seconds"
+    type: "histogram"
+    description: "Time taken for neural network inference"
+    unit: "s"
+    buckets: [0.0001, 0.001, 0.01, 0.1, 1.0]
+    labels:
+      - model_size
+      - batch_size
+  
+  memory_usage:
+    name: "memory_usage_bytes"
+    type: "gauge"
+    description: "Memory usage during simulation"
+    unit: "bytes"
+    labels:
+      - component
+      - phase
+  
+  cpu_utilization:
+    name: "cpu_utilization_percent"
+    type: "gauge"
+    description: "CPU utilization percentage"
+    unit: "percent"
+    labels:
+      - core_id
+
+# Optical simulation metrics
+optical:
+  optical_power:
+    name: "optical_power_watts"
+    type: "gauge"
+    description: "Optical power levels in waveguides"
+    unit: "W"
+    labels:
+      - waveguide_id
+      - wavelength
+  
+  insertion_loss:
+    name: "insertion_loss_decibels"
+    type: "gauge"
+    description: "Optical insertion loss"
+    unit: "dB"
+    labels:
+      - component_type
+      - component_id
+  
+  crosstalk:
+    name: "crosstalk_decibels"
+    type: "gauge"
+    description: "Optical crosstalk between channels"
+    unit: "dB"
+    labels:
+      - source_channel
+      - target_channel
+  
+  phase_shift:
+    name: "phase_shift_radians"
+    type: "gauge"
+    description: "Phase shift in photonic components"
+    unit: "rad"
+    labels:
+      - component_id
+      - modulator_type
+
+# Neural network metrics
+neural_network:
+  spike_rate:
+    name: "spike_rate_hertz"
+    type: "gauge"
+    description: "Neural spike rate"
+    unit: "Hz"
+    labels:
+      - neuron_id
+      - layer_id
+  
+  synaptic_weight:
+    name: "synaptic_weight"
+    type: "gauge"
+    description: "Synaptic weight values"
+    unit: "dimensionless"
+    labels:
+      - source_neuron
+      - target_neuron
+      - layer_id
+  
+  network_accuracy:
+    name: "network_accuracy_percent"
+    type: "gauge"
+    description: "Neural network accuracy"
+    unit: "percent"
+    labels:
+      - dataset
+      - model_version
+  
+  convergence_iterations:
+    name: "convergence_iterations_total"
+    type: "counter"
+    description: "Number of iterations to convergence"
+    unit: "iterations"
+    labels:
+      - algorithm
+      - target_accuracy
+
+# RTL generation metrics
+rtl:
+  generation_time:
+    name: "rtl_generation_duration_seconds"
+    type: "histogram"
+    description: "Time taken for RTL generation"
+    unit: "s"
+    buckets: [0.1, 1.0, 10.0, 60.0, 300.0]
+    labels:
+      - model_complexity
+      - target_technology
+  
+  gate_count:
+    name: "gate_count_total"
+    type: "gauge"
+    description: "Total gate count in generated RTL"
+    unit: "gates"
+    labels:
+      - module_name
+      - gate_type
+  
+  area_utilization:
+    name: "area_utilization_square_micrometers"
+    type: "gauge"
+    description: "Silicon area utilization"
+    unit: "μm²"
+    labels:
+      - component_type
+      - technology_node
+  
+  power_consumption:
+    name: "power_consumption_watts"
+    type: "gauge"
+    description: "Estimated power consumption"
+    unit: "W"
+    labels:
+      - power_domain
+      - operating_mode
+
+# System health metrics
+system:
+  error_rate:
+    name: "error_rate_total"
+    type: "counter"
+    description: "Total number of errors"
+    unit: "errors"
+    labels:
+      - error_type
+      - component
+      - severity
+  
+  request_duration:
+    name: "request_duration_seconds"
+    type: "histogram"
+    description: "HTTP request duration"
+    unit: "s"
+    buckets: [0.001, 0.01, 0.1, 1.0, 10.0]
+    labels:
+      - method
+      - endpoint
+      - status_code
+  
+  active_connections:
+    name: "active_connections_total"
+    type: "gauge"
+    description: "Number of active connections"
+    unit: "connections"
+    labels:
+      - connection_type
+  
+  queue_depth:
+    name: "queue_depth_total"
+    type: "gauge"
+    description: "Processing queue depth"
+    unit: "items"
+    labels:
+      - queue_name
+      - priority
+
+# Custom business metrics
+business:
+  simulations_completed:
+    name: "simulations_completed_total"
+    type: "counter"
+    description: "Total number of completed simulations"
+    unit: "simulations"
+    labels:
+      - user_id
+      - model_type
+      - success
+  
+  model_training_time:
+    name: "model_training_duration_seconds"
+    type: "histogram"
+    description: "Time spent training models"
+    unit: "s"
+    buckets: [60.0, 300.0, 1800.0, 3600.0, 21600.0]
+    labels:
+      - model_type
+      - dataset_size
+  
+  tape_out_readiness:
+    name: "tape_out_readiness_score"
+    type: "gauge"
+    description: "Tape-out readiness score (0-100)"
+    unit: "score"
+    labels:
+      - design_name
+      - technology_node
+
+# Exporters configuration
+exporters:
+  prometheus:
+    enabled: true
+    endpoint: "http://localhost:9090"
+    push_interval: 30
+    job_name: "photonic-neuromorphics"
+    
+  otlp:
+    enabled: false
+    endpoint: "http://localhost:4317"
+    headers:
+      api-key: "${OTEL_API_KEY}"
+    
+  console:
+    enabled: false  # Enable for debugging
+    
+  file:
+    enabled: true
+    path: "logs/metrics.json"
+    format: "json"
+
+# Alerting thresholds
+alerts:
+  simulation_duration_high:
+    metric: "simulation_duration_seconds"
+    threshold: 300.0  # 5 minutes
+    comparison: ">"
+    severity: "warning"
+    
+  memory_usage_high:
+    metric: "memory_usage_bytes"
+    threshold: 8589934592  # 8GB
+    comparison: ">"
+    severity: "critical"
+    
+  error_rate_high:
+    metric: "error_rate_total"
+    threshold: 10
+    comparison: ">"
+    time_window: "5m"
+    severity: "warning"
+    
+  optical_loss_high:
+    metric: "insertion_loss_decibels"
+    threshold: 10.0
+    comparison: ">"
+    severity: "warning"
+    
+  cpu_utilization_high:
+    metric: "cpu_utilization_percent"
+    threshold: 90.0
+    comparison: ">"
+    time_window: "2m"
+    severity: "critical"
+
+# Sampling configuration
+sampling:
+  # Sample 100% of traces in development
+  trace_sample_rate: 1.0
+  
+  # Sample metrics every 30 seconds
+  metric_sample_interval: 30
+  
+  # High-frequency metrics (every 5 seconds)
+  high_frequency_metrics:
+    - "cpu_utilization_percent"
+    - "memory_usage_bytes"
+    - "optical_power_watts"
+  
+  # Low-frequency metrics (every 5 minutes)
+  low_frequency_metrics:
+    - "synaptic_weight"
+    - "tape_out_readiness_score"
+
+# Environment-specific configurations
+environments:
+  development:
+    collection_interval: 10
+    exporters:
+      console:
+        enabled: true
+      prometheus:
+        enabled: false
+    sampling:
+      trace_sample_rate: 1.0
+  
+  production:
+    collection_interval: 60
+    exporters:
+      prometheus:
+        enabled: true
+      otlp:
+        enabled: true
+    sampling:
+      trace_sample_rate: 0.1
+      
+  testing:
+    collection_interval: 5
+    exporters:
+      console:
+        enabled: false
+      file:
+        enabled: true
+    sampling:
+      trace_sample_rate: 0.0

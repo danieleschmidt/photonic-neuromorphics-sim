@@ -1,0 +1,169 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            },
+            "justMyCode": false
+        },
+        {
+            "name": "Python: Photonic CLI",
+            "type": "python",
+            "request": "launch",
+            "module": "photonic_neuromorphics.cli",
+            "args": ["--help"],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "Python: Simulation Debug",
+            "type": "python",
+            "request": "launch",
+            "module": "photonic_neuromorphics.simulator",
+            "args": [
+                "--config", "examples/debug_config.yaml",
+                "--verbose"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "PHOTONIC_DEBUG": "1"
+            }
+        },
+        {
+            "name": "Python: RTL Generation Debug",
+            "type": "python",
+            "request": "launch",
+            "module": "photonic_neuromorphics.rtl",
+            "args": [
+                "--model", "examples/simple_snn.py",
+                "--output", "debug_output.v",
+                "--debug"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "Python: Pytest Current File",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "${file}",
+                "-v",
+                "--tb=short"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "Python: Pytest All Tests",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/",
+                "-v",
+                "--cov=photonic_neuromorphics",
+                "--cov-report=term-missing"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "Python: Performance Tests",
+            "type": "python",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "tests/performance/",
+                "-v",
+                "--benchmark-only",
+                "--benchmark-sort=mean"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        },
+        {
+            "name": "Python: Attach to Docker",
+            "type": "python",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}",
+                    "remoteRoot": "/app"
+                }
+            ]
+        },
+        {
+            "name": "Python: SPICE Simulation",
+            "type": "python",
+            "request": "launch",
+            "module": "photonic_neuromorphics.spice",
+            "args": [
+                "--netlist", "examples/waveguide_neuron.sp",
+                "--analysis", "transient"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "SPICE_DEBUG": "1"
+            }
+        },
+        {
+            "name": "Python: Jupyter Kernel",
+            "type": "python",
+            "request": "launch",
+            "module": "jupyter",
+            "args": [
+                "lab",
+                "--ip=0.0.0.0",
+                "--port=8888",
+                "--no-browser",
+                "--allow-root"
+            ],
+            "console": "integratedTerminal",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src"
+            }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "Full Test Suite",
+            "configurations": [
+                "Python: Pytest All Tests",
+                "Python: Performance Tests"
+            ]
+        }
+    ]
+}

@@ -1,0 +1,143 @@
+# Logging configuration for photonic neuromorphics simulation
+# Compatible with Python's logging.dictConfig()
+
+version: 1
+disable_existing_loggers: false
+
+formatters:
+  detailed:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+  
+  simple:
+    format: '%(levelname)s - %(name)s - %(message)s'
+  
+  json:
+    format: '{"timestamp": "%(asctime)s", "name": "%(name)s", "level": "%(levelname)s", "module": "%(module)s", "line": %(lineno)d, "message": "%(message)s"}'
+    datefmt: '%Y-%m-%dT%H:%M:%S'
+  
+  performance:
+    format: '%(asctime)s - PERF - %(name)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    formatter: simple
+    stream: ext://sys.stdout
+  
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: DEBUG
+    formatter: detailed
+    filename: logs/photonic_sim.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 5
+    encoding: utf-8
+  
+  error_file:
+    class: logging.handlers.RotatingFileHandler
+    level: ERROR
+    formatter: detailed
+    filename: logs/errors.log
+    maxBytes: 10485760  # 10MB
+    backupCount: 10
+    encoding: utf-8
+  
+  performance_file:
+    class: logging.handlers.TimedRotatingFileHandler
+    level: INFO
+    formatter: performance
+    filename: logs/performance.log
+    when: midnight
+    interval: 1
+    backupCount: 30
+    encoding: utf-8
+  
+  json_file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: json
+    filename: logs/photonic_sim.json
+    maxBytes: 50485760  # 50MB
+    backupCount: 5
+    encoding: utf-8
+
+loggers:
+  photonic_neuromorphics:
+    level: DEBUG
+    handlers: [console, file, error_file]
+    propagate: false
+  
+  photonic_neuromorphics.simulation:
+    level: DEBUG
+    handlers: [file, json_file]
+    propagate: false
+  
+  photonic_neuromorphics.rtl:
+    level: INFO
+    handlers: [file]
+    propagate: false
+  
+  photonic_neuromorphics.spice:
+    level: DEBUG
+    handlers: [file]
+    propagate: false
+  
+  photonic_neuromorphics.performance:
+    level: INFO
+    handlers: [performance_file]
+    propagate: false
+  
+  # Third-party library logging
+  torch:
+    level: WARNING
+    handlers: [file]
+    propagate: false
+  
+  numpy:
+    level: WARNING
+    handlers: [file]
+    propagate: false
+  
+  matplotlib:
+    level: ERROR
+    handlers: [file]
+    propagate: false
+
+root:
+  level: INFO
+  handlers: [console, file]
+
+# Environment-specific overrides
+development:
+  loggers:
+    photonic_neuromorphics:
+      level: DEBUG
+      handlers: [console, file]
+  
+  root:
+    level: DEBUG
+
+production:
+  loggers:
+    photonic_neuromorphics:
+      level: INFO
+      handlers: [json_file, error_file]
+  
+  handlers:
+    console:
+      level: WARNING
+  
+  root:
+    level: WARNING
+
+testing:
+  loggers:
+    photonic_neuromorphics:
+      level: ERROR
+      handlers: [file]
+  
+  root:
+    level: ERROR

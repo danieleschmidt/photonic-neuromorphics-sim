@@ -135,6 +135,10 @@ markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
     "unit: marks tests as unit tests",
+    "benchmark: marks tests as performance benchmarks",
+    "performance: marks tests as performance-related",
+    "performance_regression: marks tests for regression detection",
+    "contract: marks tests as API contract tests",
 ]
 
 [tool.coverage.run]
@@ -156,3 +160,10 @@ exclude_lines = [
     "if 0:",
     "if __name__ == .__main__.:",
 ]
+
+[tool.bandit]
+exclude_dirs = ["tests", "docs"]
+skips = ["B101", "B601"]  # Skip assert_used and shell_injection in tests
+
+[tool.bandit.assert_used]
+skips = ["**/test_*.py", "**/conftest.py"]

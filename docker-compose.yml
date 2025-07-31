@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # Development environment
+  dev:
+    build:
+      context: .
+      target: development
+    volumes:
+      - .:/app
+      - photonic-cache:/app/.pytest_cache
+      - photonic-mypy:/app/.mypy_cache
+    environment:
+      - PYTHONPATH=/app/src
+    ports:
+      - "8000:8000"  # Documentation server
+    command: ["bash"]
+    stdin_open: true
+    tty: true
+
+  # Production simulation runner
+  sim:
+    build:
+      context: .
+      target: production
+    volumes:
+      - ./examples:/examples:ro
+      - ./output:/output
+    environment:
+      - PHOTONIC_CONFIG_PATH=/config
+    command: ["photonic-sim", "--config", "/config/default.yaml"]
+
+  # Testing environment
+  test:
+    build:
+      context: .
+      target: testing
+    volumes:
+      - .:/app
+      - photonic-coverage:/app/htmlcov
+    environment:
+      - PYTEST_CURRENT_TEST
+    command: ["pytest", "tests/", "-v", "--cov-report=html"]
+
+  # Documentation server
+  docs:
+    build:
+      context: .
+      target: docs
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./docs:/app/docs
+      - docs-build:/app/docs/_build
+
+  # Jupyter notebook for interactive development
+  notebook:
+    build:
+      context: .
+      target: development
+    ports:
+      - "8888:8888"
+    volumes:
+      - .:/app
+      - jupyter-data:/home/photonic/.jupyter
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+    command: ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--allow-root"]
+
+  # SPICE simulation service
+  spice:
+    build:
+      context: .
+      target: development
+    volumes:
+      - ./spice:/spice
+      - spice-output:/output
+    environment:
+      - NGSPICE_PATH=/usr/local/bin/ngspice
+    command: ["python", "-m", "photonic_neuromorphics.spice", "--watch", "/spice"]
+
+volumes:
+  photonic-cache:
+  photonic-mypy:
+  photonic-coverage:
+  docs-build:
+  jupyter-data:
+  spice-output:

@@ -205,3 +205,71 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# IDE and Editor specific
+.vscode/settings_local.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific - EDA tools
+*.gds
+*.mag
+*.lef
+*.def
+*.spef
+*.sdf
+*.lib
+*.db
+
+# Simulation outputs
+simulation_results/
+spice_output/
+*.raw
+*.lis
+*.out
+
+# Monitoring and logs
+logs/
+*.log
+monitoring/prometheus/data/
+monitoring/grafana/data/
+
+# Docker volumes
+.docker-volumes/
+
+# Performance test results
+benchmark_results.json
+.benchmarks/
+
+# Security scan results
+bandit-report.json
+safety-report.json
+sbom.json
+sbom.xml
+
+# Generated RTL and layouts
+generated_rtl/
+layouts/
+*.v.bak
+*.sv.bak
+
+# Documentation builds
+docs/_build/
+docs/source/_build/
+site/
+
+# Temporary and cache directories
+.tmp/
+.cache/
+tmp/
+temp/

@@ -79,6 +79,67 @@ services:
       - NGSPICE_PATH=/usr/local/bin/ngspice
     command: ["python", "-m", "photonic_neuromorphics.spice", "--watch", "/spice"]
 
+  # Layout generation and visualization service
+  layout:
+    build:
+      context: .
+      target: development
+    volumes:
+      - ./layouts:/layouts
+      - layout-output:/output
+    environment:
+      - KLAYOUT_PATH=/usr/local/bin/klayout
+      - PDK_PATH=/pdks
+    command: ["python", "-m", "photonic_neuromorphics.layout", "--server"]
+    ports:
+      - "8080:8080"  # Layout visualization server
+
+  # Database for simulation results (optional)
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: photonic_sim
+      POSTGRES_USER: photonic
+      POSTGRES_PASSWORD: simulation123
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U photonic"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for caching simulation results
+  cache:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  # Performance monitoring with cAdvisor
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+      - "8081:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    depends_on:
+      - dev
+      - sim
+
 volumes:
   photonic-cache:
   photonic-mypy:
@@ -86,3 +147,6 @@ volumes:
   docs-build:
   jupyter-data:
   spice-output:
+  layout-output:
+  postgres-data:
+  redis-data:

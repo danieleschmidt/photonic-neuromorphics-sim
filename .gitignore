@@ -273,3 +273,35 @@ site/
 .cache/
 tmp/
 temp/
+
+# Photonic simulation specific
+*.wdb
+*.wlf
+*.lck
+*.bak
+*.orig
+*.bak*
+outputs/
+results/
+work/
+transcript
+vsim.wlf
+*.vcd
+*.ghw
+*.fst
+*.fdb_latexmk
+*.fls
+*.aux
+*.toc
+
+# Optical simulation outputs
+mode_profiles/
+field_distributions/
+transmission_spectra/
+*.h5
+*.hdf5
+
+# PDK specific
+pdk_cache/
+tech_files/
+*.techlib

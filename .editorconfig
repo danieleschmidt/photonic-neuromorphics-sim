@@ -23,7 +23,15 @@ indent_size = 2
 indent_style = space
 indent_size = 2
 
-[*.{v,sv,vh}]
+[*.{v,sv,vh,svh}]
+indent_style = space
+indent_size = 2
+
+[*.{sp,cir,net}]
+indent_style = space
+indent_size = 4
+
+[*.{sh,bash}]
 indent_style = space
 indent_size = 2
 

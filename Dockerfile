@@ -8,15 +8,27 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies for EDA tools
+# Install system dependencies for EDA tools and photonic simulation
 RUN apt-get update && apt-get install -y \
     build-essential \
     git \
     curl \
+    wget \
     libhdf5-dev \
     libopenblas-dev \
+    liblapack-dev \
+    libfftw3-dev \
     gfortran \
-    && rm -rf /var/lib/apt/lists/*
+    ngspice \
+    gtkwave \
+    graphviz \
+    libgraphviz-dev \
+    pkg-config \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 WORKDIR /app
 
@@ -53,9 +65,15 @@ COPY pyproject.toml README.md LICENSE ./
 # Install package
 RUN pip install .
 
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash photonic
+# Create non-root user with proper permissions
+RUN useradd --create-home --shell /bin/bash --uid 1000 photonic \
+    && mkdir -p /app/outputs /app/layouts /app/simulation_data \
+    && chown -R photonic:photonic /app
 USER photonic
+
+# Set up user environment
+ENV HOME=/home/photonic \
+    PATH=$HOME/.local/bin:$PATH
 
 CMD ["photonic-sim", "--help"]
 

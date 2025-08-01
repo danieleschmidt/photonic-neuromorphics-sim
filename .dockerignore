@@ -99,3 +99,46 @@ docker-compose*
 *.def
 *.spef
 *.sdf
+
+# Photonic simulation outputs
+simulation_data/
+simulation_results/
+spice_output/
+*.raw
+*.lis
+*.out
+*.wlf
+*.vcd
+*.ghw
+*.fst
+
+# Layout and design files
+layouts/
+outputs/
+results/
+work/
+transcript
+
+# Optical simulation data
+mode_profiles/
+field_distributions/
+transmission_spectra/
+*.h5
+*.hdf5
+
+# Performance profiling
+*.prof
+profile.stats
+*.stats
+
+# Security reports
+bandit-report.json
+safety-report.json
+sbom.json
+sbom.xml
+
+# PDK and technology files (usually too large)
+pdk_cache/
+tech_files/
+*.techlib
+pdks/

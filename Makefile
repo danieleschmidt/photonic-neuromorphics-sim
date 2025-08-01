@@ -1,17 +1,47 @@
 .PHONY: help install install-dev test lint format type clean docs docs-live build release
+.PHONY: docker-build docker-test docker-dev security-scan performance-test
+.PHONY: validate-spice validate-verilog validate-layouts benchmark
 
 # Default target
 help:
 	@echo "Available targets:"
+	@echo ""
+	@echo "Development:"
 	@echo "  install      Install package in development mode"
 	@echo "  install-dev  Install development dependencies"
+	@echo "  dev-setup    Complete development environment setup"
+	@echo ""
+	@echo "Testing:"
 	@echo "  test         Run tests with pytest"
+	@echo "  test-cov     Run tests with coverage reporting"
+	@echo "  test-unit    Run unit tests only"
+	@echo "  test-integration  Run integration tests only"
+	@echo "  test-performance  Run performance tests"
+	@echo "  test-security     Run security tests"
+	@echo ""
+	@echo "Code Quality:"
 	@echo "  lint         Run linting checks"
 	@echo "  format       Format code with black and ruff"
 	@echo "  type         Run type checking with mypy"
-	@echo "  clean        Clean build artifacts"
+	@echo "  security-scan  Run security scanning"
+	@echo ""
+	@echo "Photonic Validation:"
+	@echo "  validate-spice    Validate SPICE netlists"
+	@echo "  validate-verilog  Validate Verilog modules"
+	@echo "  validate-layouts  Validate GDS layouts"
+	@echo "  benchmark         Run performance benchmarks"
+	@echo ""
+	@echo "Docker:"
+	@echo "  docker-build Build Docker images"
+	@echo "  docker-test  Run tests in Docker"
+	@echo "  docker-dev   Start development environment"
+	@echo ""
+	@echo "Documentation:"
 	@echo "  docs         Build documentation"
 	@echo "  docs-live    Build docs with live reload"
+	@echo ""
+	@echo "Build & Release:"
+	@echo "  clean        Clean build artifacts"
 	@echo "  build        Build distribution packages"
 	@echo "  release      Build and upload to PyPI"
 
@@ -74,3 +104,94 @@ dev-setup: install-dev
 	@echo "Development environment setup complete!"
 	@echo "Run 'make test' to run tests"
 	@echo "Run 'make docs-live' to start documentation server"
+
+# Additional test targets
+test-unit:
+	pytest tests/unit/ -v -m "unit"
+
+test-integration:
+	pytest tests/integration/ -v -m "integration"
+
+test-performance:
+	pytest tests/performance/ -v -m "performance"
+
+test-security:
+	pytest tests/security/ -v -m "security"
+
+test-all:
+	pytest tests/ -v --cov=photonic_neuromorphics --cov-report=html
+
+# Security scanning
+security-scan:
+	bandit -r src/ -f json -o bandit-report.json
+	safety check --json --output safety-report.json
+	@echo "Security scan complete. Check bandit-report.json and safety-report.json"
+
+# Photonic-specific validation
+validate-spice:
+	@echo "Validating SPICE netlists..."
+	@find . -name "*.sp" -o -name "*.cir" -o -name "*.net" | while read file; do \
+		echo "Checking $$file"; \
+		grep -q ".end" "$$file" || echo "Warning: $$file missing .end statement"; \
+	done
+
+validate-verilog:
+	@echo "Validating Verilog modules..."
+	@find . -name "*.v" -o -name "*.sv" | while read file; do \
+		echo "Checking $$file"; \
+		grep -q "module" "$$file" || echo "Warning: $$file missing module declaration"; \
+		grep -q "endmodule" "$$file" || echo "Warning: $$file missing endmodule statement"; \
+	done
+
+validate-layouts:
+	@echo "Validating GDS layouts..."
+	@find . -name "*.gds" | while read file; do \
+		echo "Checking $$file"; \
+		[ -s "$$file" ] || echo "Warning: $$file is empty"; \
+	done
+
+# Performance benchmarking
+benchmark:
+	pytest tests/regression/test_performance_regression.py -v -m "benchmark" --benchmark-only
+
+# Docker targets
+docker-build:
+	docker build -t photonic-neuromorphics:dev --target development .
+	docker build -t photonic-neuromorphics:prod --target production .
+	docker build -t photonic-neuromorphics:test --target testing .
+
+docker-test:
+	docker-compose -f docker-compose.yml run --rm test
+
+docker-dev:
+	docker-compose -f docker-compose.yml up dev
+
+docker-clean:
+	docker-compose -f docker-compose.yml down -v
+	docker system prune -f
+
+# CI/CD helpers
+ci-test: test-all security-scan validate-spice validate-verilog
+	@echo "CI test suite complete"
+
+ci-build: clean lint type ci-test build
+	@echo "CI build complete"
+
+# Monitoring and profiling
+profile:
+	python -m cProfile -o profile.stats -m photonic_neuromorphics.cli --help
+	python -c "import pstats; pstats.Stats('profile.stats').sort_stats('cumulative').print_stats(20)"
+
+memory-profile:
+	python -m memory_profiler -m photonic_neuromorphics.cli --help
+
+# Cleanup extended
+clean-all: clean
+	docker-compose -f docker-compose.yml down -v
+	docker system prune -f
+	rm -rf .tox/
+	rm -rf node_modules/
+	rm -rf *.prof
+	rm -rf profile.stats
+	rm -rf bandit-report.json
+	rm -rf safety-report.json

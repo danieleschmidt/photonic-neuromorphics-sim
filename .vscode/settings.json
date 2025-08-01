@@ -37,7 +37,22 @@
         "**/*.egg-info": true,
         "**/.coverage": true,
         "**/htmlcov": true,
-        "**/.tox": true
+        "**/.tox": true,
+        "**/*.gds": true,
+        "**/*.mag": true,
+        "**/work": true,
+        "**/transcript": true,
+        "**/*.wlf": true
+    },
+    
+    "files.associations": {
+        "*.v": "verilog",
+        "*.sv": "systemverilog", 
+        "*.vh": "verilog",
+        "*.svh": "systemverilog",
+        "*.sp": "spice",
+        "*.cir": "spice",
+        "*.net": "spice"
     },
     
     "search.exclude": {

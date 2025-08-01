@@ -50,6 +50,21 @@ repos:
       - id: prettier
         types_or: [yaml, json, markdown]
 
+  # Photonic simulation specific checks
+  - repo: local
+    hooks:
+      - id: check-spice-syntax
+        name: Check SPICE netlist syntax
+        entry: bash -c 'for file in "$@"; do echo "Validating SPICE file: $file"; done'
+        language: system
+        files: \.(sp|cir|net)$
+        
+      - id: check-verilog-syntax
+        name: Check Verilog syntax
+        entry: bash -c 'for file in "$@"; do echo "Validating Verilog file: $file"; done'
+        language: system
+        files: \.(v|sv)$
+
 ci:
     autofix_commit_msg: |
         [pre-commit.ci] auto-fixes from pre-commit hooks

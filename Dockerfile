@@ -1,5 +1,5 @@
 # Multi-stage build for photonic neuromorphics simulation
-FROM python:3.11-slim as base
+FROM python:3.13-slim as base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \

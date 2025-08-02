@@ -1,0 +1,435 @@
+{
+  "project": {
+    "name": "photonic-neuromorphics-sim",
+    "description": "Silicon-photonic neuromorphic simulation platform",
+    "repository": "danieleschmidt/photonic-neuromorphics-sim",
+    "created_date": "2025-01-01",
+    "last_updated": "2025-01-01"
+  },
+  "metrics": {
+    "code_quality": {
+      "test_coverage": {
+        "target": 90,
+        "current": 0,
+        "unit": "percentage",
+        "description": "Code coverage percentage from test suite",
+        "collection_method": "pytest-cov",
+        "frequency": "every_commit"
+      },
+      "code_complexity": {
+        "target": 10,
+        "current": 0,
+        "unit": "cyclomatic_complexity",
+        "description": "Average cyclomatic complexity per function",
+        "collection_method": "radon",
+        "frequency": "daily"
+      },
+      "technical_debt": {
+        "target": 0,
+        "current": 0,
+        "unit": "hours",
+        "description": "Technical debt estimation in hours",
+        "collection_method": "sonarqube",
+        "frequency": "weekly"
+      },
+      "code_duplication": {
+        "target": 5,
+        "current": 0,
+        "unit": "percentage",
+        "description": "Percentage of duplicated code blocks",
+        "collection_method": "sonarqube",
+        "frequency": "weekly"
+      },
+      "maintainability_index": {
+        "target": 80,
+        "current": 0,
+        "unit": "index_score",
+        "description": "Microsoft maintainability index (0-100)",
+        "collection_method": "radon",
+        "frequency": "daily"
+      }
+    },
+    "security": {
+      "vulnerabilities": {
+        "critical": {
+          "target": 0,
+          "current": 0,
+          "unit": "count",
+          "description": "Number of critical security vulnerabilities",
+          "collection_method": "bandit,safety,semgrep",
+          "frequency": "every_commit"
+        },
+        "high": {
+          "target": 0,
+          "current": 0,
+          "unit": "count",
+          "description": "Number of high severity vulnerabilities",
+          "collection_method": "bandit,safety,semgrep",
+          "frequency": "every_commit"
+        },
+        "medium": {
+          "target": 5,
+          "current": 0,
+          "unit": "count",
+          "description": "Number of medium severity vulnerabilities",
+          "collection_method": "bandit,safety,semgrep",
+          "frequency": "daily"
+        }
+      },
+      "dependency_vulnerabilities": {
+        "target": 0,
+        "current": 0,
+        "unit": "count",
+        "description": "Known vulnerabilities in dependencies",
+        "collection_method": "safety,pip-audit",
+        "frequency": "daily"
+      },
+      "secrets_exposed": {
+        "target": 0,
+        "current": 0,
+        "unit": "count",
+        "description": "Exposed secrets in code",
+        "collection_method": "trufflehog,detect-secrets",
+        "frequency": "every_commit"
+      },
+      "security_hotspots": {
+        "target": 0,
+        "current": 0,
+        "unit": "count",
+        "description": "Security hotspots requiring review",
+        "collection_method": "sonarqube",
+        "frequency": "weekly"
+      }
+    },
+    "performance": {
+      "build_time": {
+        "target": 300,
+        "current": 0,
+        "unit": "seconds",
+        "description": "Average CI build time",
+        "collection_method": "github_actions",
+        "frequency": "every_build"
+      },
+      "test_execution_time": {
+        "target": 120,
+        "current": 0,
+        "unit": "seconds",
+        "description": "Total test suite execution time",
+        "collection_method": "pytest",
+        "frequency": "every_build"
+      },
+      "docker_build_time": {
+        "target": 180,
+        "current": 0,
+        "unit": "seconds",
+        "description": "Docker image build time",
+        "collection_method": "docker_build_logs",
+        "frequency": "every_build"
+      },
+      "startup_time": {
+        "target": 30,
+        "current": 0,
+        "unit": "seconds",
+        "description": "Application startup time",
+        "collection_method": "application_metrics",
+        "frequency": "deployment"
+      },
+      "memory_usage": {
+        "target": 2048,
+        "current": 0,
+        "unit": "megabytes",
+        "description": "Peak memory usage during operation",
+        "collection_method": "memory_profiler",
+        "frequency": "daily"
+      }
+    },
+    "development": {
+      "commit_frequency": {
+        "target": 5,
+        "current": 0,
+        "unit": "commits_per_day",
+        "description": "Average commits per day",
+        "collection_method": "git_log",
+        "frequency": "daily"
+      },
+      "pull_request_cycle_time": {
+        "target": 24,
+        "current": 0,
+        "unit": "hours",
+        "description": "Average time from PR creation to merge",
+        "collection_method": "github_api",
+        "frequency": "weekly"
+      },
+      "code_review_time": {
+        "target": 4,
+        "current": 0,
+        "unit": "hours",
+        "description": "Average time for code review",
+        "collection_method": "github_api",
+        "frequency": "weekly"
+      },
+      "defect_density": {
+        "target": 0.1,
+        "current": 0,
+        "unit": "defects_per_kloc",
+        "description": "Defects per thousand lines of code",
+        "collection_method": "issue_tracking",
+        "frequency": "weekly"
+      },
+      "feature_lead_time": {
+        "target": 168,
+        "current": 0,
+        "unit": "hours",
+        "description": "Time from feature request to deployment",
+        "collection_method": "issue_tracking",
+        "frequency": "monthly"
+      }
+    },
+    "deployment": {
+      "deployment_frequency": {
+        "target": 7,
+        "current": 0,
+        "unit": "deployments_per_week",
+        "description": "Number of deployments per week",
+        "collection_method": "deployment_logs",
+        "frequency": "weekly"
+      },
+      "deployment_success_rate": {
+        "target": 95,
+        "current": 0,
+        "unit": "percentage",
+        "description": "Percentage of successful deployments",
+        "collection_method": "deployment_logs",
+        "frequency": "weekly"
+      },
+      "rollback_rate": {
+        "target": 5,
+        "current": 0,
+        "unit": "percentage",
+        "description": "Percentage of deployments requiring rollback",
+        "collection_method": "deployment_logs",
+        "frequency": "weekly"
+      },
+      "mean_time_to_recovery": {
+        "target": 1,
+        "current": 0,
+        "unit": "hours",
+        "description": "Average time to recover from failed deployment",
+        "collection_method": "incident_tracking",
+        "frequency": "monthly"
+      }
+    },
+    "reliability": {
+      "uptime": {
+        "target": 99.9,
+        "current": 0,
+        "unit": "percentage",
+        "description": "Service uptime percentage",
+        "collection_method": "monitoring_tools",
+        "frequency": "real_time"
+      },
+      "error_rate": {
+        "target": 0.1,
+        "current": 0,
+        "unit": "percentage",
+        "description": "Application error rate",
+        "collection_method": "application_logs",
+        "frequency": "real_time"
+      },
+      "mean_time_between_failures": {
+        "target": 720,
+        "current": 0,
+        "unit": "hours",
+        "description": "Average time between system failures",
+        "collection_method": "incident_tracking",
+        "frequency": "monthly"
+      },
+      "response_time_p95": {
+        "target": 500,
+        "current": 0,
+        "unit": "milliseconds",
+        "description": "95th percentile response time",
+        "collection_method": "apm_tools",
+        "frequency": "real_time"
+      }
+    },
+    "business": {
+      "user_adoption": {
+        "target": 1000,
+        "current": 0,
+        "unit": "active_users",
+        "description": "Number of active users",
+        "collection_method": "analytics",
+        "frequency": "daily"
+      },
+      "simulation_success_rate": {
+        "target": 95,
+        "current": 0,
+        "unit": "percentage",
+        "description": "Percentage of successful simulations",
+        "collection_method": "application_metrics",
+        "frequency": "daily"
+      },
+      "average_simulation_time": {
+        "target": 300,
+        "current": 0,
+        "unit": "seconds",
+        "description": "Average photonic simulation execution time",
+        "collection_method": "application_metrics",
+        "frequency": "daily"
+      },
+      "model_accuracy": {
+        "target": 95,
+        "current": 0,
+        "unit": "percentage",
+        "description": "Average neural network model accuracy",
+        "collection_method": "application_metrics",
+        "frequency": "weekly"
+      },
+      "research_productivity": {
+        "target": 10,
+        "current": 0,
+        "unit": "experiments_per_week",
+        "description": "Number of experiments completed per week",
+        "collection_method": "application_metrics",
+        "frequency": "weekly"
+      }
+    }
+  },
+  "dashboards": {
+    "executive": {
+      "name": "Executive Dashboard",
+      "description": "High-level business and technical metrics",
+      "url": "https://grafana.photonic-neuromorphics.com/d/executive",
+      "metrics": [
+        "user_adoption",
+        "uptime",
+        "deployment_frequency",
+        "security_vulnerabilities"
+      ]
+    },
+    "engineering": {
+      "name": "Engineering Dashboard",
+      "description": "Development and technical metrics",
+      "url": "https://grafana.photonic-neuromorphics.com/d/engineering",
+      "metrics": [
+        "test_coverage",
+        "build_time",
+        "code_complexity",
+        "pull_request_cycle_time"
+      ]
+    },
+    "operations": {
+      "name": "Operations Dashboard",
+      "description": "System reliability and performance metrics",
+      "url": "https://grafana.photonic-neuromorphics.com/d/operations",
+      "metrics": [
+        "uptime",
+        "error_rate",
+        "response_time_p95",
+        "memory_usage"
+      ]
+    },
+    "security": {
+      "name": "Security Dashboard",
+      "description": "Security posture and vulnerability metrics",
+      "url": "https://grafana.photonic-neuromorphics.com/d/security",
+      "metrics": [
+        "vulnerabilities",
+        "dependency_vulnerabilities",
+        "secrets_exposed",
+        "security_hotspots"
+      ]
+    },
+    "business": {
+      "name": "Business Dashboard",
+      "description": "Business and research productivity metrics",
+      "url": "https://grafana.photonic-neuromorphics.com/d/business",
+      "metrics": [
+        "user_adoption",
+        "simulation_success_rate",
+        "model_accuracy",
+        "research_productivity"
+      ]
+    }
+  },
+  "alerts": {
+    "critical": [
+      {
+        "metric": "uptime",
+        "condition": "< 99.0",
+        "notification": ["email", "slack", "pagerduty"]
+      },
+      {
+        "metric": "vulnerabilities.critical",
+        "condition": "> 0",
+        "notification": ["email", "slack"]
+      },
+      {
+        "metric": "secrets_exposed",
+        "condition": "> 0",
+        "notification": ["email", "slack", "pagerduty"]
+      }
+    ],
+    "warning": [
+      {
+        "metric": "test_coverage",
+        "condition": "< 80",
+        "notification": ["slack"]
+      },
+      {
+        "metric": "build_time",
+        "condition": "> 600",
+        "notification": ["slack"]
+      },
+      {
+        "metric": "error_rate",
+        "condition": "> 1.0",
+        "notification": ["email", "slack"]
+      }
+    ]
+  },
+  "automation": {
+    "data_collection": {
+      "frequency": "daily",
+      "script": "scripts/collect_metrics.py",
+      "storage": "prometheus,influxdb"
+    },
+    "report_generation": {
+      "frequency": "weekly",
+      "script": "scripts/generate_reports.py",
+      "distribution": ["email", "slack"]
+    },
+    "trend_analysis": {
+      "frequency": "monthly",
+      "script": "scripts/analyze_trends.py",
+      "output": "trend_analysis_report.pdf"
+    }
+  },
+  "goals": {
+    "2025_q1": {
+      "test_coverage": 85,
+      "vulnerability_count": 0,
+      "build_time": 240,
+      "uptime": 99.5
+    },
+    "2025_q2": {
+      "test_coverage": 90,
+      "deployment_frequency": 10,
+      "pull_request_cycle_time": 12,
+      "user_adoption": 500
+    },
+    "2025_q3": {
+      "technical_debt": 40,
+      "simulation_success_rate": 98,
+      "model_accuracy": 97,
+      "response_time_p95": 300
+    },
+    "2025_q4": {
+      "uptime": 99.9,
+      "user_adoption": 1000,
+      "research_productivity": 15,
+      "mean_time_to_recovery": 0.5
+    }
+  }
+}

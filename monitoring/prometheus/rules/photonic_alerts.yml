@@ -1,0 +1,193 @@
+# Alerting rules for photonic neuromorphics simulation
+groups:
+  - name: photonic.performance
+    rules:
+      - alert: SimulationDurationHigh
+        expr: simulation_duration_seconds > 300
+        for: 2m
+        labels:
+          severity: warning
+          component: simulation
+        annotations:
+          summary: "Simulation taking too long"
+          description: "Simulation {{ $labels.model_type }} has been running for {{ $value }} seconds"
+
+      - alert: MemoryUsageHigh
+        expr: memory_usage_bytes > 8589934592  # 8GB
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage for {{ $labels.component }} is {{ $value | humanizeBytes }}"
+
+      - alert: CPUUtilizationHigh
+        expr: cpu_utilization_percent > 90
+        for: 2m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "High CPU utilization"
+          description: "CPU utilization is {{ $value }}% on core {{ $labels.core_id }}"
+
+  - name: photonic.optical
+    rules:
+      - alert: OpticalLossHigh
+        expr: insertion_loss_decibels > 10.0
+        for: 1m
+        labels:
+          severity: warning
+          component: optical
+        annotations:
+          summary: "High optical insertion loss"
+          description: "Insertion loss in {{ $labels.component_type }} {{ $labels.component_id }} is {{ $value }} dB"
+
+      - alert: OpticalCrosstalkHigh
+        expr: crosstalk_decibels > -20
+        for: 1m
+        labels:
+          severity: warning
+          component: optical
+        annotations:
+          summary: "High optical crosstalk"
+          description: "Crosstalk between channels {{ $labels.source_channel }} and {{ $labels.target_channel }} is {{ $value }} dB"
+
+      - alert: OpticalPowerLow
+        expr: optical_power_watts < 1e-6
+        for: 30s
+        labels:
+          severity: warning
+          component: optical
+        annotations:
+          summary: "Low optical power detected"
+          description: "Optical power in waveguide {{ $labels.waveguide_id }} is {{ $value }} W"
+
+  - name: photonic.neural_network
+    rules:
+      - alert: NetworkAccuracyLow
+        expr: network_accuracy_percent < 85
+        for: 5m
+        labels:
+          severity: warning
+          component: neural_network
+        annotations:
+          summary: "Neural network accuracy is low"
+          description: "Network accuracy for {{ $labels.dataset }} is {{ $value }}%"
+
+      - alert: SpikeRateAbnormal
+        expr: spike_rate_hertz > 1000 or spike_rate_hertz < 0.1
+        for: 1m
+        labels:
+          severity: warning
+          component: neural_network
+        annotations:
+          summary: "Abnormal spike rate detected"
+          description: "Neuron {{ $labels.neuron_id }} has spike rate {{ $value }} Hz"
+
+      - alert: ConvergenceFailure
+        expr: increase(convergence_iterations_total[10m]) == 0
+        for: 10m
+        labels:
+          severity: critical
+          component: neural_network
+        annotations:
+          summary: "Neural network not converging"
+          description: "No convergence detected for algorithm {{ $labels.algorithm }} in 10 minutes"
+
+  - name: photonic.rtl
+    rules:
+      - alert: RTLGenerationSlow
+        expr: rtl_generation_duration_seconds > 300
+        for: 1m
+        labels:
+          severity: warning
+          component: rtl
+        annotations:
+          summary: "RTL generation is slow"
+          description: "RTL generation for {{ $labels.target_technology }} taking {{ $value }} seconds"
+
+      - alert: PowerConsumptionHigh
+        expr: power_consumption_watts > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          component: rtl
+        annotations:
+          summary: "High power consumption"
+          description: "Power consumption in {{ $labels.power_domain }} is {{ $value }} W"
+
+      - alert: AreaUtilizationHigh
+        expr: area_utilization_square_micrometers > 4000000  # 4mm²
+        for: 1m
+        labels:
+          severity: warning
+          component: rtl
+        annotations:
+          summary: "High area utilization"
+          description: "Area utilization for {{ $labels.component_type }} is {{ $value }} μm²"
+
+  - name: photonic.system
+    rules:
+      - alert: ErrorRateHigh
+        expr: rate(error_rate_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "High error rate"
+          description: "Error rate for {{ $labels.component }} is {{ $value }} errors/second"
+
+      - alert: RequestLatencyHigh
+        expr: histogram_quantile(0.95, rate(request_duration_seconds_bucket[5m])) > 1.0
+        for: 2m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High request latency"
+          description: "95th percentile latency is {{ $value }} seconds for {{ $labels.endpoint }}"
+
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: system
+        annotations:
+          summary: "Service is down"
+          description: "Service {{ $labels.job }} on {{ $labels.instance }} is down"
+
+      - alert: QueueDepthHigh
+        expr: queue_depth_total > 1000
+        for: 5m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High queue depth"
+          description: "Queue {{ $labels.queue_name }} has {{ $value }} items"
+
+  - name: photonic.business
+    rules:
+      - alert: TapeOutReadinessLow
+        expr: tape_out_readiness_score < 80
+        for: 10m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "Tape-out readiness score is low"
+          description: "Design {{ $labels.design_name }} has readiness score {{ $value }}"
+
+      - alert: SimulationFailureRate
+        expr: rate(simulations_completed_total{success="false"}[10m]) / rate(simulations_completed_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: business
+        annotations:
+          summary: "High simulation failure rate"
+          description: "Simulation failure rate is {{ $value | humanizePercentage }} for {{ $labels.model_type }}"

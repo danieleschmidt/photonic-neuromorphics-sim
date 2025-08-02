@@ -1,0 +1,128 @@
+# Grafana datasource configuration for photonic neuromorphics monitoring
+apiVersion: 1
+
+datasources:
+  # Prometheus datasource
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+    jsonData:
+      httpMethod: POST
+      manageAlerts: true
+      prometheusType: Prometheus
+      prometheusVersion: 2.44.0
+      cacheLevel: 'High'
+      disableMetricsLookup: false
+      customQueryParameters: ''
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: jaeger-uid
+
+  # Jaeger datasource for traces
+  - name: Jaeger
+    type: jaeger
+    uid: jaeger-uid
+    access: proxy
+    url: http://jaeger:16686
+    editable: true
+    jsonData:
+      tracesToMetrics:
+        datasourceUid: prometheus-uid
+        tags:
+          - key: service.name
+            value: service
+          - key: span.name
+            value: operation
+        queries:
+          - name: Sample query
+            query: 'sum(rate(tempo_spanmetrics_latency_bucket{$$__tags}[5m]))'
+      tracesToLogs:
+        datasourceUid: loki-uid
+        tags:
+          - service
+          - instance
+        mappedTags:
+          - service
+        mapTagNamesEnabled: true
+        spanStartTimeShift: '-1h'
+        spanEndTimeShift: '1h'
+
+  # Loki datasource for logs
+  - name: Loki
+    type: loki
+    uid: loki-uid
+    access: proxy
+    url: http://loki:3100
+    editable: true
+    jsonData:
+      maxLines: 1000
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '(?:trace_id|traceID|trace-id)[:=]\s*"?([a-f0-9]{16,32})"?'
+          url: '$${__value.raw}'
+          datasourceUid: jaeger-uid
+
+  # TestData datasource for development
+  - name: TestData
+    type: testdata
+    uid: testdata-uid
+    editable: true
+
+  # InfluxDB datasource for long-term storage (if configured)
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    database: photonic_metrics
+    user: admin
+    secureJsonData:
+      password: ${INFLUXDB_PASSWORD}
+    jsonData:
+      timeInterval: "30s"
+      httpMode: GET
+    editable: true
+
+  # CloudWatch datasource (for AWS deployments)
+  - name: CloudWatch
+    type: cloudwatch
+    jsonData:
+      authType: credentials
+      defaultRegion: us-west-2
+      customMetricsNamespaces: PhotonicNeuromorphics
+    secureJsonData:
+      accessKey: ${AWS_ACCESS_KEY_ID}
+      secretKey: ${AWS_SECRET_ACCESS_KEY}
+    editable: true
+
+  # PostgreSQL datasource for application data
+  - name: PostgreSQL
+    type: postgres
+    url: postgresql://postgres:5432/photonic_db
+    user: postgres
+    secureJsonData:
+      password: ${POSTGRES_PASSWORD}
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 100
+      maxIdleConns: 100
+      maxIdleConnsAuto: true
+      connMaxLifetime: 14400
+      postgresVersion: 1300
+      timescaledb: false
+    editable: true
+
+  # Redis datasource for cache metrics
+  - name: Redis
+    type: redis-datasource
+    access: proxy
+    url: redis://redis:6379
+    jsonData:
+      client: standalone
+      poolSize: 5
+      timeout: 10
+      pingInterval: 0
+      pipelineWindow: 0
+    editable: true

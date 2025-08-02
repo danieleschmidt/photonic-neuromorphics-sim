@@ -1,0 +1,198 @@
+# AlertManager configuration for photonic neuromorphics simulation
+global:
+  smtp_smarthost: 'localhost:587'
+  smtp_from: 'alerts@photonic-neuromorphics.com'
+  smtp_auth_username: 'alerts@photonic-neuromorphics.com'
+  smtp_auth_password: '${SMTP_PASSWORD}'
+
+# Routing configuration
+route:
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'default'
+  routes:
+    # Critical alerts go to on-call immediately
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 5s
+      repeat_interval: 30m
+    
+    # Optical component alerts
+    - match:
+        component: optical
+      receiver: 'optical-team'
+      group_interval: 30s
+    
+    # Neural network alerts
+    - match:
+        component: neural_network
+      receiver: 'ml-team'
+      group_interval: 1m
+    
+    # RTL generation alerts
+    - match:
+        component: rtl
+      receiver: 'hardware-team'
+      group_interval: 2m
+    
+    # System alerts
+    - match:
+        component: system
+      receiver: 'devops-team'
+      group_interval: 30s
+    
+    # Business metrics alerts
+    - match:
+        component: business
+      receiver: 'product-team'
+      group_interval: 5m
+
+# Inhibition rules
+inhibit_rules:
+  # Inhibit lower severity alerts when critical alerts are firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']
+
+  # Inhibit individual component alerts when service is down
+  - source_match:
+      alertname: 'ServiceDown'
+    target_match_re:
+      component: '(optical|neural_network|rtl)'
+    equal: ['instance']
+
+# Receiver configurations
+receivers:
+  - name: 'default'
+    email_configs:
+      - to: 'team@photonic-neuromorphics.com'
+        subject: '[{{ .Status | toUpper }}] {{ .GroupLabels.SortedPairs.Values | join " " }} - {{ .CommonAnnotations.summary }}'
+        body: |
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance }}
+          Severity: {{ .Labels.severity }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'oncall@photonic-neuromorphics.com'
+        subject: '[CRITICAL] {{ .CommonAnnotations.summary }}'
+        body: |
+          🚨 CRITICAL ALERT 🚨
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance }}
+          Component: {{ .Labels.component }}
+          Time: {{ .StartsAt }}
+          
+          Runbook: https://docs.photonic-neuromorphics.com/runbooks/{{ .Labels.alertname | toLower }}
+          {{ end }}
+    
+    slack_configs:
+      - api_url: '${SLACK_WEBHOOK_URL}'
+        channel: '#critical-alerts'
+        title: '🚨 Critical Alert: {{ .CommonAnnotations.summary }}'
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Annotations.summary }}
+          *Description:* {{ .Annotations.description }}
+          *Instance:* {{ .Labels.instance }}
+          *Component:* {{ .Labels.component }}
+          *Severity:* {{ .Labels.severity }}
+          {{ end }}
+
+  - name: 'optical-team'
+    email_configs:
+      - to: 'optical-team@photonic-neuromorphics.com'
+        subject: '[OPTICAL] {{ .CommonAnnotations.summary }}'
+        body: |
+          Optical Component Alert
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Component: {{ .Labels.component_type }} {{ .Labels.component_id }}
+          Wavelength: {{ .Labels.wavelength }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+
+  - name: 'ml-team'
+    email_configs:
+      - to: 'ml-team@photonic-neuromorphics.com'
+        subject: '[ML] {{ .CommonAnnotations.summary }}'
+        body: |
+          Neural Network Alert
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Model: {{ .Labels.model_type }}
+          Dataset: {{ .Labels.dataset }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+
+  - name: 'hardware-team'
+    email_configs:
+      - to: 'hardware-team@photonic-neuromorphics.com'
+        subject: '[RTL] {{ .CommonAnnotations.summary }}'
+        body: |
+          RTL Generation Alert
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Technology: {{ .Labels.target_technology }}
+          Design: {{ .Labels.design_name }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+
+  - name: 'devops-team'
+    email_configs:
+      - to: 'devops@photonic-neuromorphics.com'
+        subject: '[SYSTEM] {{ .CommonAnnotations.summary }}'
+        body: |
+          System Alert
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Instance: {{ .Labels.instance }}
+          Service: {{ .Labels.job }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+    
+    pagerduty_configs:
+      - routing_key: '${PAGERDUTY_ROUTING_KEY}'
+        description: '{{ .CommonAnnotations.summary }}'
+        details:
+          firing: '{{ .Alerts.Firing | len }}'
+          resolved: '{{ .Alerts.Resolved | len }}'
+          summary: '{{ .CommonAnnotations.summary }}'
+
+  - name: 'product-team'
+    email_configs:
+      - to: 'product@photonic-neuromorphics.com'
+        subject: '[BUSINESS] {{ .CommonAnnotations.summary }}'
+        body: |
+          Business Metrics Alert
+          
+          {{ range .Alerts }}
+          Alert: {{ .Annotations.summary }}
+          Description: {{ .Annotations.description }}
+          Metric: {{ .Labels.alertname }}
+          Time: {{ .StartsAt }}
+          {{ end }}
+
+# Templates for custom notification formatting
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'

@@ -1,0 +1,47 @@
+# Grafana dashboard provisioning configuration
+apiVersion: 1
+
+providers:
+  # Photonic Neuromorphics dashboards
+  - name: 'photonic-dashboards'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/photonic
+      foldersFromFilesStructure: true
+
+  # System monitoring dashboards
+  - name: 'system-dashboards'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 60
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/system
+      foldersFromFilesStructure: true
+
+  # Application monitoring dashboards
+  - name: 'application-dashboards'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/application
+      foldersFromFilesStructure: true
+
+  # Business metrics dashboards
+  - name: 'business-dashboards'
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 300
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards/business
+      foldersFromFilesStructure: true

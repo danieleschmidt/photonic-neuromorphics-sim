@@ -1,0 +1,109 @@
+# Prometheus configuration for photonic neuromorphics simulation
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+  external_labels:
+    cluster: 'photonic-neuromorphics'
+    environment: '${ENVIRONMENT:-development}'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+# Load alerting rules
+rule_files:
+  - "rules/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Application metrics
+  - job_name: 'photonic-neuromorphics'
+    static_configs:
+      - targets: ['host.docker.internal:8000']  # Main application
+    metrics_path: /metrics
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    honor_labels: true
+    params:
+      format: ['prometheus']
+
+  # Node Exporter for host metrics
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # cAdvisor for container metrics
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+    scrape_interval: 30s
+
+  # OpenTelemetry Collector metrics
+  - job_name: 'otel-collector'
+    static_configs:
+      - targets: ['otel-collector:8888']
+    scrape_interval: 30s
+
+  # Grafana metrics
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
+    metrics_path: /metrics
+    scrape_interval: 60s
+
+  # Jaeger metrics
+  - job_name: 'jaeger'
+    static_configs:
+      - targets: ['jaeger:14269']
+    metrics_path: /metrics
+    scrape_interval: 60s
+
+  # Loki metrics
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+    metrics_path: /metrics
+    scrape_interval: 60s
+
+  # Redis metrics (via redis_exporter if available)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+
+  # Custom photonic simulation metrics
+  - job_name: 'photonic-simulation'
+    file_sd_configs:
+      - files:
+        - '/etc/prometheus/targets/simulation-*.json'
+        refresh_interval: 30s
+    relabel_configs:
+      - source_labels: [__meta_file_name]
+        target_label: simulation_instance
+
+  # Hardware monitoring (if available)
+  - job_name: 'hardware-metrics'
+    static_configs:
+      - targets: ['host.docker.internal:9101']  # Custom hardware exporter
+    scrape_interval: 10s
+    metrics_path: /metrics
+    honor_labels: true
+
+# Remote write configuration for long-term storage
+remote_write:
+  - url: "http://localhost:8086/api/v1/prom/write?db=photonic_metrics"
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 200
+      capacity: 2500

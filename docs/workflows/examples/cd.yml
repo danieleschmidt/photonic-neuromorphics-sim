@@ -1,0 +1,454 @@
+# Example CD workflow for photonic neuromorphics simulation
+# This file should be copied to .github/workflows/cd.yml
+# MANUAL ACTION REQUIRED: Repository maintainers must create this workflow manually
+
+name: Continuous Deployment
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  PYTHON_VERSION: '3.9'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Determine deployment configuration
+  setup:
+    name: Setup Deployment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.config.outputs.environment }}
+      version: ${{ steps.config.outputs.version }}
+      should_deploy: ${{ steps.config.outputs.should_deploy }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Determine deployment configuration
+        id: config
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "environment=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.event_name }}" == "release" ]]; then
+            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+          fi
+          
+          # Extract version
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+          fi
+
+  # Build and publish Docker image
+  build-image:
+    name: Build & Publish Image
+    runs-on: ubuntu-latest
+    needs: setup
+    if: needs.setup.outputs.should_deploy == 'true'
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ needs.setup.outputs.version }}
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  # Deploy to staging environment
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [setup, build-image]
+    if: needs.setup.outputs.environment == 'staging'
+    environment:
+      name: staging
+      url: https://staging.photonic-neuromorphics.com
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Deploy to ECS Staging
+        run: |
+          # Update ECS task definition
+          aws ecs update-service \
+            --cluster photonic-staging \
+            --service photonic-neuromorphics \
+            --force-new-deployment
+
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster photonic-staging \
+            --services photonic-neuromorphics
+
+      - name: Run smoke tests
+        run: |
+          # Wait for service to be ready
+          sleep 30
+          
+          # Run basic health checks
+          curl -f https://staging.photonic-neuromorphics.com/health || exit 1
+          
+          # Run API tests
+          python scripts/smoke_tests.py --environment staging
+
+      - name: Notify deployment
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#deployments'
+          text: 'Staging deployment completed for version ${{ needs.setup.outputs.version }}'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Deploy to production environment
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [setup, build-image]
+    if: needs.setup.outputs.environment == 'production'
+    environment:
+      name: production
+      url: https://photonic-neuromorphics.com
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: us-west-2
+
+      - name: Blue-Green deployment preparation
+        run: |
+          # Create new task definition revision
+          TASK_DEF=$(aws ecs describe-task-definition \
+            --task-definition photonic-neuromorphics-prod \
+            --query 'taskDefinition' \
+            --output json)
+          
+          # Update image URI
+          NEW_TASK_DEF=$(echo $TASK_DEF | jq --arg IMAGE "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.setup.outputs.version }}" \
+            '.containerDefinitions[0].image = $IMAGE')
+          
+          # Register new task definition
+          aws ecs register-task-definition \
+            --cli-input-json "$NEW_TASK_DEF"
+
+      - name: Deploy to production (Blue-Green)
+        run: |
+          # Update service with new task definition
+          aws ecs update-service \
+            --cluster photonic-production \
+            --service photonic-neuromorphics \
+            --force-new-deployment
+
+      - name: Wait for deployment and health checks
+        run: |
+          # Wait for deployment to stabilize
+          aws ecs wait services-stable \
+            --cluster photonic-production \
+            --services photonic-neuromorphics \
+            --cli-read-timeout 1200
+
+      - name: Run production health checks
+        run: |
+          # Comprehensive health checks
+          python scripts/production_health_check.py
+          
+          # Performance validation
+          python scripts/performance_validation.py
+
+      - name: Create deployment record
+        run: |
+          # Record deployment in database/tracking system
+          python scripts/record_deployment.py \
+            --version "${{ needs.setup.outputs.version }}" \
+            --environment production \
+            --commit "${{ github.sha }}"
+
+      - name: Notify production deployment
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#production-deployments'
+          text: '🚀 Production deployment completed for version ${{ needs.setup.outputs.version }}'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Publish Python package
+  publish-package:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    needs: setup
+    if: github.event_name == 'release'
+    environment:
+      name: pypi
+      url: https://pypi.org/project/photonic-neuromorphics-sim/
+    permissions:
+      id-token: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build package
+        run: |
+          python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verify-metadata: true
+
+  # Documentation deployment
+  deploy-docs:
+    name: Deploy Documentation
+    runs-on: ubuntu-latest
+    needs: [setup, build-image]
+    if: needs.setup.outputs.environment == 'production' || github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install documentation dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install sphinx sphinx-rtd-theme
+
+      - name: Build documentation
+        run: |
+          sphinx-build -b html docs/ docs/_build/html/
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/_build/html
+
+  # Database migrations (if applicable)
+  migrate-database:
+    name: Database Migration
+    runs-on: ubuntu-latest
+    needs: [setup, build-image]
+    if: needs.setup.outputs.should_deploy == 'true'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run database migrations
+        run: |
+          # Run any database migrations if needed
+          python scripts/migrate_database.py \
+            --environment ${{ needs.setup.outputs.environment }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  # Post-deployment verification
+  post-deployment:
+    name: Post-Deployment Verification
+    runs-on: ubuntu-latest
+    needs: [setup, deploy-staging, deploy-production]
+    if: always() && needs.setup.outputs.should_deploy == 'true'
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run end-to-end tests
+        run: |
+          pytest tests/e2e/ -v \
+            --environment ${{ needs.setup.outputs.environment }}
+
+      - name: Performance regression test
+        run: |
+          python scripts/performance_regression.py \
+            --baseline-version latest \
+            --current-version ${{ needs.setup.outputs.version }}
+
+      - name: Security validation
+        run: |
+          # Run security tests against deployed environment
+          python scripts/security_validation.py \
+            --environment ${{ needs.setup.outputs.environment }}
+
+      - name: Generate deployment report
+        run: |
+          python scripts/deployment_report.py \
+            --version ${{ needs.setup.outputs.version }} \
+            --environment ${{ needs.setup.outputs.environment }} \
+            --commit ${{ github.sha }}
+
+  # Rollback capability
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure() && github.event_name != 'workflow_dispatch'
+    needs: [setup, deploy-staging, deploy-production, post-deployment]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+
+      - name: Rollback to previous version
+        run: |
+          # Get previous stable task definition
+          PREVIOUS_TASK_DEF=$(aws ecs list-task-definitions \
+            --family-prefix photonic-neuromorphics \
+            --status ACTIVE \
+            --sort DESC \
+            --query 'taskDefinitionArns[1]' \
+            --output text)
+          
+          # Update service to use previous task definition
+          aws ecs update-service \
+            --cluster photonic-${{ needs.setup.outputs.environment }} \
+            --service photonic-neuromorphics \
+            --task-definition $PREVIOUS_TASK_DEF \
+            --force-new-deployment
+
+      - name: Notify rollback
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              text: "🔄 Rollback initiated for ${{ needs.setup.outputs.environment }} deployment",
+              attachments: [{
+                color: "warning",
+                fields: [{
+                  title: "Environment",
+                  value: "${{ needs.setup.outputs.environment }}",
+                  short: true
+                }, {
+                  title: "Version",
+                  value: "${{ needs.setup.outputs.version }}",
+                  short: true
+                }]
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

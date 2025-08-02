@@ -1,0 +1,155 @@
+groups:
+  - name: photonic_neuromorphics_alerts
+    rules:
+      # Application Health
+      - alert: ApplicationDown
+        expr: up{job="photonic-neuromorphics"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: photonic-neuromorphics
+        annotations:
+          summary: "Application is down"
+          description: "The photonic neuromorphics application has been down for more than 1 minute."
+
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+          service: photonic-neuromorphics
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors per second for the last 5 minutes."
+
+      # Performance Alerts
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 0.5
+        for: 3m
+        labels:
+          severity: warning
+          service: photonic-neuromorphics
+        annotations:
+          summary: "High response time"
+          description: "95th percentile response time is {{ $value }}s for the last 5 minutes."
+
+      - alert: SimulationTimeout
+        expr: increase(simulation_timeouts_total[10m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          service: simulation-engine
+        annotations:
+          summary: "Multiple simulation timeouts"
+          description: "{{ $value }} simulation timeouts in the last 10 minutes."
+
+      # Resource Usage
+      - alert: HighCPUUsage
+        expr: (100 - (avg by (instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)) > 80
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}."
+
+      - alert: HighMemoryUsage
+        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+          service: system
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}% on {{ $labels.instance }}."
+
+      - alert: LowDiskSpace
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 90
+        for: 5m
+        labels:
+          severity: critical
+          service: system
+        annotations:
+          summary: "Low disk space"
+          description: "Disk usage is {{ $value }}% on {{ $labels.instance }}."
+
+  - name: simulation_quality_alerts
+    rules:
+      # Simulation Quality
+      - alert: LowSimulationAccuracy
+        expr: simulation_accuracy_percentage < 95
+        for: 2m
+        labels:
+          severity: warning
+          service: simulation-engine
+        annotations:
+          summary: "Low simulation accuracy"
+          description: "Simulation accuracy dropped to {{ $value }}%."
+
+      - alert: ModelConvergenceFailure
+        expr: increase(model_convergence_failures_total[15m]) > 3
+        for: 1m
+        labels:
+          severity: critical
+          service: simulation-engine
+        annotations:
+          summary: "Model convergence failures"
+          description: "{{ $value }} model convergence failures in the last 15 minutes."
+
+      # Data Quality
+      - alert: HighDataValidationErrors
+        expr: rate(data_validation_errors_total[10m]) > 0.01
+        for: 3m
+        labels:
+          severity: warning
+          service: data-processing
+        annotations:
+          summary: "High data validation error rate"
+          description: "Data validation error rate is {{ $value }} errors per second."
+
+  - name: security_alerts
+    rules:
+      # Security
+      - alert: UnauthorizedAccess
+        expr: increase(http_requests_total{status="401"}[5m]) > 10
+        for: 1m
+        labels:
+          severity: warning
+          service: security
+        annotations:
+          summary: "Multiple unauthorized access attempts"
+          description: "{{ $value }} unauthorized access attempts in the last 5 minutes."
+
+      - alert: SecurityVulnerabilityDetected
+        expr: security_vulnerabilities_count > 0
+        for: 0s
+        labels:
+          severity: critical
+          service: security
+        annotations:
+          summary: "Security vulnerabilities detected"
+          description: "{{ $value }} security vulnerabilities detected in dependencies."
+
+  - name: infrastructure_alerts
+    rules:
+      # Infrastructure
+      - alert: ContainerRestartLoop
+        expr: increase(container_restarts_total[10m]) > 3
+        for: 1m
+        labels:
+          severity: warning
+          service: infrastructure
+        annotations:
+          summary: "Container restart loop"
+          description: "Container {{ $labels.container }} has restarted {{ $value }} times in the last 10 minutes."
+
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: monitoring
+        annotations:
+          summary: "Prometheus target down"
+          description: "Prometheus target {{ $labels.job }} on {{ $labels.instance }} is down."

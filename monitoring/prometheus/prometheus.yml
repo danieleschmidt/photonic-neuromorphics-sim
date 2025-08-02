@@ -1,0 +1,71 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'photonic-neuromorphics-dev'
+    environment: 'development'
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+    scrape_interval: 5s
+    metrics_path: /metrics
+
+  # Application metrics
+  - job_name: 'photonic-neuromorphics'
+    static_configs:
+      - targets: ['app:8000']
+    scrape_interval: 10s
+    metrics_path: /metrics
+    honor_labels: true
+
+  # Node Exporter (system metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 10s
+
+  # Docker metrics
+  - job_name: 'docker'
+    static_configs:
+      - targets: ['docker-exporter:9417']
+    scrape_interval: 10s
+
+  # Python application metrics
+  - job_name: 'python-app-metrics'
+    static_configs:
+      - targets: ['app:8001']
+    scrape_interval: 15s
+    metrics_path: /api/metrics
+
+  # Simulation engine metrics
+  - job_name: 'simulation-engine'
+    static_configs:
+      - targets: ['app:8002']
+    scrape_interval: 30s
+    metrics_path: /simulation/metrics
+    scrape_timeout: 25s
+
+# Storage configuration
+storage:
+  tsdb:
+    retention.time: 30d
+    retention.size: 10GB
+    path: /prometheus/data
+
+# Remote write configuration (optional)
+# remote_write:
+#   - url: "https://prometheus-remote-write-endpoint"
+#     headers:
+#       Authorization: "Bearer <token>"

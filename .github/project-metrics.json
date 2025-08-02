@@ -1,0 +1,213 @@
+{
+  "project": {
+    "name": "photonic-neuromorphics-sim",
+    "description": "Scientific simulation software for silicon-photonic spiking neural networks",
+    "repository": "danieleschmidt/photonic-neuromorphics-sim",
+    "primary_language": "Python",
+    "created_date": "2024-01-01",
+    "last_updated": "2025-01-01"
+  },
+  "metrics": {
+    "code_quality": {
+      "target_coverage": 90,
+      "target_complexity": 5,
+      "target_maintainability": 80,
+      "linting_standard": "flake8",
+      "formatting_standard": "black",
+      "type_checking": "mypy"
+    },
+    "security": {
+      "vulnerability_scan_frequency": "weekly",
+      "dependency_scan_frequency": "daily",
+      "security_policy_version": "1.0",
+      "slsa_compliance_level": 3,
+      "target_vulnerabilities": 0
+    },
+    "testing": {
+      "test_types": [
+        "unit",
+        "integration",
+        "end-to-end",
+        "performance",
+        "security",
+        "contract",
+        "regression"
+      ],
+      "target_coverage": 90,
+      "test_automation": true,
+      "performance_benchmarks": true
+    },
+    "documentation": {
+      "coverage_target": 90,
+      "api_documentation": true,
+      "user_guides": true,
+      "developer_guides": true,
+      "architecture_documentation": true,
+      "adr_process": true
+    },
+    "build_and_deployment": {
+      "build_automation": true,
+      "containerized": true,
+      "ci_cd_pipeline": true,
+      "deployment_automation": true,
+      "rollback_capability": true,
+      "blue_green_deployment": true
+    },
+    "monitoring": {
+      "metrics_collection": true,
+      "log_aggregation": true,
+      "distributed_tracing": true,
+      "alerting": true,
+      "dashboards": true,
+      "sla_monitoring": true
+    }
+  },
+  "targets": {
+    "quality_gates": {
+      "test_coverage_minimum": 80,
+      "security_vulnerabilities_maximum": 0,
+      "build_time_maximum_minutes": 5,
+      "deployment_time_maximum_minutes": 10,
+      "response_time_95th_percentile_ms": 500
+    },
+    "performance": {
+      "simulation_time_maximum_minutes": 5,
+      "memory_usage_maximum_gb": 2,
+      "startup_time_maximum_seconds": 30,
+      "throughput_minimum_ops_per_second": 1000
+    },
+    "reliability": {
+      "uptime_percentage": 99.9,
+      "mttr_hours": 1,
+      "mtbf_hours": 720,
+      "error_rate_percentage": 0.1
+    }
+  },
+  "automation": {
+    "dependency_updates": {
+      "enabled": true,
+      "frequency": "weekly",
+      "security_priority": true,
+      "auto_merge_patch": false,
+      "auto_merge_security": true
+    },
+    "release_automation": {
+      "enabled": true,
+      "semantic_versioning": true,
+      "changelog_generation": true,
+      "github_releases": true,
+      "package_publishing": true
+    },
+    "quality_monitoring": {
+      "enabled": true,
+      "frequency": "daily",
+      "trend_analysis": true,
+      "alerts": true,
+      "dashboard": true
+    },
+    "security_scanning": {
+      "enabled": true,
+      "frequency": "daily",
+      "dependency_scanning": true,
+      "code_scanning": true,
+      "secret_detection": true,
+      "container_scanning": true
+    }
+  },
+  "compliance": {
+    "frameworks": [
+      "SLSA",
+      "SOC 2",
+      "GDPR",
+      "NIST Cybersecurity Framework"
+    ],
+    "standards": [
+      "Semantic Versioning",
+      "Conventional Commits",
+      "OpenTelemetry",
+      "SBOM Generation"
+    ],
+    "certifications": [],
+    "audit_frequency": "quarterly"
+  },
+  "team": {
+    "size": 1,
+    "roles": [
+      "Full Stack Developer",
+      "DevOps Engineer",
+      "Security Engineer"
+    ],
+    "communication_channels": [
+      "GitHub Issues",
+      "GitHub Discussions",
+      "Pull Request Reviews"
+    ],
+    "decision_making_process": "Architecture Decision Records (ADR)"
+  },
+  "infrastructure": {
+    "cloud_provider": "AWS",
+    "container_orchestration": "Docker Compose",
+    "monitoring_stack": [
+      "Prometheus",
+      "Grafana",
+      "Loki",
+      "AlertManager"
+    ],
+    "ci_cd_platform": "GitHub Actions",
+    "package_registry": "PyPI",
+    "artifact_storage": "GitHub Packages"
+  },
+  "tracking": {
+    "last_metrics_collection": null,
+    "metrics_history_retention_days": 365,
+    "reporting_frequency": "weekly",
+    "dashboard_url": null,
+    "alerts_configuration": {
+      "slack_webhook": null,
+      "email_notifications": false,
+      "github_issues": true
+    }
+  },
+  "integrations": {
+    "github": {
+      "enabled": true,
+      "webhooks": true,
+      "apps": [
+        "Dependabot",
+        "CodeQL"
+      ]
+    },
+    "external_services": {
+      "codecov": false,
+      "snyk": false,
+      "sonarqube": false,
+      "datadog": false
+    },
+    "development_tools": {
+      "pre_commit_hooks": true,
+      "ide_configuration": true,
+      "dev_containers": true,
+      "docker_compose": true
+    }
+  },
+  "business_metrics": {
+    "user_adoption": {
+      "total_downloads": 0,
+      "active_users": 0,
+      "github_stars": 0,
+      "github_forks": 0
+    },
+    "contribution": {
+      "external_contributors": 0,
+      "pull_requests_per_month": 0,
+      "issues_resolved_per_month": 0,
+      "community_engagement": "low"
+    },
+    "success_criteria": {
+      "simulation_accuracy": "> 95%",
+      "performance_improvement": "> 10x over baseline",
+      "user_satisfaction": "> 4.5/5",
+      "community_adoption": "> 100 stars"
+    }
+  }
+}

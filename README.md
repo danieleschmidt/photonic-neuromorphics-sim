@@ -470,7 +470,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ```bibtex
 @inproceedings{photonic_neuromorphics_sim,
   title={Silicon-Photonic Neuromorphic Design Framework},
-  author={Your Name},
+  author={Daniel Schmidt},
   booktitle={VLSI Symposium},
   year={2025}
 }

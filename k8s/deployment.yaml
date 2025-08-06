@@ -1,0 +1,384 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: photonic-neuromorphics
+  namespace: photonic-system
+  labels:
+    app: photonic-neuromorphics
+    version: v0.1.0
+    component: simulation-engine
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: photonic-neuromorphics
+  template:
+    metadata:
+      labels:
+        app: photonic-neuromorphics
+        version: v0.1.0
+        component: simulation-engine
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      serviceAccountName: photonic-neuromorphics-sa
+      containers:
+      - name: photonic-app
+        image: photonic-neuromorphics:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: ENVIRONMENT
+          value: "production"
+        - name: LOG_LEVEL
+          value: "INFO"
+        - name: METRICS_ENABLED
+          value: "true"
+        - name: HEALTH_CHECK_ENABLED
+          value: "true"
+        - name: OPTIMIZATION_LEVEL
+          value: "2"
+        - name: CACHE_SIZE
+          value: "1000"
+        - name: MAX_WORKERS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        - name: MEMORY_POOL_SIZE
+          value: "1024"
+        - name: PYTHONPATH
+          value: "/app/src"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          successThreshold: 1
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+        volumeMounts:
+        - name: cache-volume
+          mountPath: /app/cache
+        - name: output-volume
+          mountPath: /app/outputs
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        - name: tmp-volume
+          mountPath: /tmp
+      - name: metrics-exporter
+        image: prom/node-exporter:v1.5.0
+        args:
+        - --path.rootfs=/host
+        - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+        ports:
+        - containerPort: 9100
+          name: node-metrics
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: proc
+          mountPath: /host/proc
+          readOnly: true
+        - name: sys
+          mountPath: /host/sys
+          readOnly: true
+      volumes:
+      - name: cache-volume
+        emptyDir:
+          sizeLimit: 2Gi
+      - name: output-volume
+        persistentVolumeClaim:
+          claimName: photonic-output-pvc
+      - name: config-volume
+        configMap:
+          name: photonic-config
+      - name: tmp-volume
+        emptyDir:
+          sizeLimit: 1Gi
+      - name: proc
+        hostPath:
+          path: /proc
+      - name: sys
+        hostPath:
+          path: /sys
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        node-type: compute-optimized
+      tolerations:
+      - key: "compute-intensive"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - photonic-neuromorphics
+              topologyKey: kubernetes.io/hostname
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: instance-type
+                operator: In
+                values:
+                - compute-optimized
+                - memory-optimized
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: photonic-neuromorphics-service
+  namespace: photonic-system
+  labels:
+    app: photonic-neuromorphics
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8080"
+spec:
+  type: ClusterIP
+  selector:
+    app: photonic-neuromorphics
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  - name: metrics
+    port: 9100
+    targetPort: 9100
+    protocol: TCP
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: photonic-neuromorphics-sa
+  namespace: photonic-system
+  labels:
+    app: photonic-neuromorphics
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: photonic-neuromorphics-role
+  namespace: photonic-system
+rules:
+- apiGroups: [""]
+  resources: ["configmaps", "secrets"]
+  verbs: ["get", "list"]
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: photonic-neuromorphics-rolebinding
+  namespace: photonic-system
+subjects:
+- kind: ServiceAccount
+  name: photonic-neuromorphics-sa
+  namespace: photonic-system
+roleRef:
+  kind: Role
+  name: photonic-neuromorphics-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: photonic-config
+  namespace: photonic-system
+  labels:
+    app: photonic-neuromorphics
+data:
+  app.yaml: |
+    server:
+      host: "0.0.0.0"
+      port: 8080
+      workers: 4
+    
+    simulation:
+      default_mode: "optical"
+      max_duration: 1000e-9
+      max_neurons: 10000
+      cache_enabled: true
+      parallel_enabled: true
+    
+    optimization:
+      cache_size: 1000
+      memory_pool_size: 1024
+      batch_size: 32
+      auto_scaling: true
+      scaling_threshold_cpu: 80.0
+      scaling_threshold_memory: 85.0
+    
+    monitoring:
+      metrics_enabled: true
+      health_check_enabled: true
+      profiling_enabled: true
+      log_level: "INFO"
+    
+    security:
+      max_file_size: 100MB
+      allowed_file_types: [".v", ".sv", ".vhd", ".json", ".yaml"]
+      rate_limit: 100
+      timeout: 300
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: photonic-output-pvc
+  namespace: photonic-system
+  labels:
+    app: photonic-neuromorphics
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: fast-ssd
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: photonic-neuromorphics-ingress
+  namespace: photonic-system
+  labels:
+    app: photonic-neuromorphics
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - photonic-sim.terragon.ai
+    secretName: photonic-tls-cert
+  rules:
+  - host: photonic-sim.terragon.ai
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: photonic-neuromorphics-service
+            port:
+              number: 8080
+
+---
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  name: photonic-neuromorphics-pdb
+  namespace: photonic-system
+  labels:
+    app: photonic-neuromorphics
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: photonic-neuromorphics
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: photonic-neuromorphics-hpa
+  namespace: photonic-system
+  labels:
+    app: photonic-neuromorphics
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: photonic-neuromorphics
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 60
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60

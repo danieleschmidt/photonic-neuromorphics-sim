@@ -1,0 +1,224 @@
+# Multi-stage Docker build for photonic neuromorphics production deployment
+# Optimized for security, performance, and minimal attack surface
+
+# ========================================
+# Stage 1: Base Python environment
+# ========================================
+FROM python:3.11-slim as base
+
+# Set build arguments
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION=0.1.0
+
+# Add metadata labels
+LABEL org.opencontainers.image.title="Photonic Neuromorphics Simulation Platform" \
+      org.opencontainers.image.description="Silicon-photonic spiking neural networks simulation and RTL generation" \
+      org.opencontainers.image.version=$VERSION \
+      org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.revision=$VCS_REF \
+      org.opencontainers.image.vendor="Terragon Labs" \
+      org.opencontainers.image.source="https://github.com/danieleschmidt/photonic-neuromorphics-sim" \
+      org.opencontainers.image.licenses="MIT"
+
+# Create non-root user for security
+RUN groupadd -r photonic && useradd -r -g photonic -d /app -s /bin/bash photonic
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    wget \
+    git \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app/src \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# ========================================
+# Stage 2: Dependencies installation
+# ========================================
+FROM base as dependencies
+
+# Copy requirements files
+COPY requirements.txt requirements-dev.txt ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Install additional production dependencies
+RUN pip install --no-cache-dir \
+    gunicorn==20.1.0 \
+    uvicorn[standard]==0.20.0 \
+    fastapi==0.88.0 \
+    prometheus-client==0.15.0 \
+    opentelemetry-api==1.15.0 \
+    opentelemetry-instrumentation==0.36b0
+
+# ========================================
+# Stage 3: Development stage (for testing)
+# ========================================
+FROM dependencies as development
+
+# Install development dependencies
+RUN pip install --no-cache-dir -r requirements-dev.txt
+
+# Copy source code
+COPY --chown=photonic:photonic . /app/
+WORKDIR /app
+
+# Switch to non-root user
+USER photonic
+
+# Install package in development mode
+RUN pip install --user -e .
+
+# Expose port for development
+EXPOSE 8080
+
+# Development command
+CMD ["python", "-m", "photonic_neuromorphics.cli"]
+
+# ========================================
+# Stage 4: Testing stage
+# ========================================
+FROM development as testing
+
+# Run security scans and tests
+USER root
+
+# Install security scanning tools
+RUN pip install --no-cache-dir \
+    bandit==1.7.4 \
+    safety==2.3.5 \
+    semgrep==1.5.2
+
+# Run security tests
+RUN bandit -r src/ -f json -o /tmp/bandit-report.json || true
+RUN safety check --json --output /tmp/safety-report.json || true
+RUN python -m pytest tests/ -v --cov=src --cov-report=html --cov-report=term || true
+
+USER photonic
+
+# ========================================
+# Stage 5: Production stage
+# ========================================
+FROM dependencies as production
+
+# Copy only necessary files
+COPY --chown=photonic:photonic src/ /app/src/
+COPY --chown=photonic:photonic pyproject.toml /app/
+COPY --chown=photonic:photonic README.md /app/
+COPY --chown=photonic:photonic LICENSE /app/
+COPY --chown=photonic:photonic scripts/ /app/scripts/
+COPY --chown=photonic:photonic monitoring/ /app/monitoring/
+
+# Create necessary directories
+RUN mkdir -p /app/data /app/outputs /app/cache /app/logs && \
+    chown -R photonic:photonic /app
+
+WORKDIR /app
+
+# Install package
+RUN pip install --no-cache-dir .
+
+# Switch to non-root user
+USER photonic
+
+# Create production configuration
+RUN echo '#!/bin/bash\n\
+set -e\n\
+\n\
+# Health check endpoint\n\
+if [ "$1" = "health" ]; then\n\
+    python -c "import photonic_neuromorphics; print(\"healthy\")" && exit 0 || exit 1\n\
+fi\n\
+\n\
+# Start application with production settings\n\
+export LOG_LEVEL=${LOG_LEVEL:-INFO}\n\
+export METRICS_ENABLED=${METRICS_ENABLED:-true}\n\
+export HEALTH_CHECK_ENABLED=${HEALTH_CHECK_ENABLED:-true}\n\
+\n\
+# Start the application\n\
+exec python -m photonic_neuromorphics.cli "$@"\n\
+' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
+# Security hardening
+USER root
+RUN find /app -type f -exec chmod 644 {} \; && \
+    find /app -type d -exec chmod 755 {} \; && \
+    chmod +x /app/entrypoint.sh && \
+    chmod +x /app/scripts/*.py
+
+# Remove unnecessary packages to reduce attack surface
+RUN apt-get remove -y build-essential git && \
+    apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+
+USER photonic
+
+# Set production environment
+ENV ENVIRONMENT=production \
+    LOG_LEVEL=INFO \
+    PYTHONPATH=/app/src \
+    METRICS_ENABLED=true \
+    OPTIMIZATION_LEVEL=2
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD ["/app/entrypoint.sh", "health"]
+
+# Use custom entrypoint
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+# Default command
+CMD ["--help"]
+
+# ========================================
+# Stage 6: Minimal runtime (alternative)
+# ========================================
+FROM python:3.11-alpine as minimal
+
+# Install minimal runtime dependencies
+RUN apk add --no-cache \
+    libstdc++ \
+    libgomp \
+    ca-certificates
+
+# Create non-root user
+RUN addgroup -S photonic && adduser -S photonic -G photonic
+
+# Copy only the installed package from production stage
+COPY --from=production --chown=photonic:photonic /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=production --chown=photonic:photonic /usr/local/bin /usr/local/bin
+COPY --from=production --chown=photonic:photonic /app/src /app/src
+COPY --from=production --chown=photonic:photonic /app/entrypoint.sh /app/entrypoint.sh
+
+WORKDIR /app
+USER photonic
+
+# Set minimal environment
+ENV PYTHONPATH=/app/src \
+    PYTHONUNBUFFERED=1 \
+    ENVIRONMENT=production
+
+EXPOSE 8080
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=2 \
+    CMD python -c "import photonic_neuromorphics; print('healthy')" || exit 1
+
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["--help"]

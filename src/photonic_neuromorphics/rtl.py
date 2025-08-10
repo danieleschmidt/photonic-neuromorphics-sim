@@ -100,6 +100,17 @@ class VerilogCodeGenerator:
 // Photonic Neural Network Module: {module_name}
 // Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 // Target Technology: {self.config.target_technology}
+// Optimization Level: {self.config.optimization_level}
+//==============================================================================
+
+`timescale 1ns / 1ps
+
+module {module_name} (
+    input wire clk,
+    input wire rst_n,
+    input wire enable,"
+// Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+// Target Technology: {self.config.target_technology}
 // Target Frequency: {self.config.target_frequency/1e6:.1f} MHz
 //==============================================================================
 

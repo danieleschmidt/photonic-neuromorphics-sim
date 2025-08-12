@@ -25,6 +25,26 @@ from .benchmarks import (
     NeuronMorphicBenchmark, create_mnist_benchmark, create_temporal_benchmark,
     run_comprehensive_comparison
 )
+from .multiwavelength import (
+    WDMMultiplexer, MultiWavelengthNeuron, WDMCrossbar, AttentionMechanism,
+    create_multiwavelength_mnist_network, simulate_multiwavelength_network
+)
+from .physical_validation import (
+    PhysicalValidationPipeline, FDTDSimulator, ThermalAnalyzer,
+    ProcessVariationAnalyzer, create_validation_pipeline, validate_neuron_design
+)
+from .security import (
+    SecurityManager, SecureSimulationSession, InputValidator, OutputSanitizer,
+    create_secure_environment
+)
+from .enhanced_logging import (
+    PhotonicLogger, CorrelationContext, PerformanceTracker, LogAnalyzer,
+    setup_photonic_logging, logged_operation
+)
+from .robust_error_handling import (
+    ErrorHandler, CircuitBreaker, robust_operation, error_recovery_context,
+    create_robust_error_system
+)
 
 __all__ = [
     # Core functionality
@@ -63,4 +83,42 @@ __all__ = [
     "create_mnist_benchmark",
     "create_temporal_benchmark",
     "run_comprehensive_comparison",
+    
+    # Multi-wavelength Computing
+    "WDMMultiplexer",
+    "MultiWavelengthNeuron", 
+    "WDMCrossbar",
+    "AttentionMechanism",
+    "create_multiwavelength_mnist_network",
+    "simulate_multiwavelength_network",
+    
+    # Physical Validation
+    "PhysicalValidationPipeline",
+    "FDTDSimulator",
+    "ThermalAnalyzer", 
+    "ProcessVariationAnalyzer",
+    "create_validation_pipeline",
+    "validate_neuron_design",
+    
+    # Security
+    "SecurityManager",
+    "SecureSimulationSession",
+    "InputValidator",
+    "OutputSanitizer",
+    "create_secure_environment",
+    
+    # Enhanced Logging
+    "PhotonicLogger",
+    "CorrelationContext",
+    "PerformanceTracker",
+    "LogAnalyzer",
+    "setup_photonic_logging",
+    "logged_operation",
+    
+    # Robust Error Handling
+    "ErrorHandler",
+    "CircuitBreaker",
+    "robust_operation",
+    "error_recovery_context",
+    "create_robust_error_system",
 ]

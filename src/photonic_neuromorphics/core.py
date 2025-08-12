@@ -31,6 +31,34 @@ class OpticalParameters:
     coupling_efficiency: float = 0.9
     detector_efficiency: float = 0.8
     propagation_loss: float = 0.1  # dB/cm
+    
+    # Multi-wavelength support
+    wavelength_channels: List[float] = None  # List of wavelengths for WDM
+    channel_spacing: float = 0.8e-9  # 0.8 nm channel spacing
+    crosstalk_suppression: float = 30.0  # dB
+    
+    def __post_init__(self):
+        if self.wavelength_channels is None:
+            self.wavelength_channels = [self.wavelength]
+
+
+class MultiWavelengthParameters(BaseModel):
+    """Parameters for multi-wavelength photonic systems."""
+    channel_count: int = Field(default=4, description="Number of WDM channels")
+    center_wavelength: float = Field(default=1550e-9, description="Center wavelength")
+    channel_spacing: float = Field(default=0.8e-9, description="Channel spacing")
+    power_per_channel: float = Field(default=250e-6, description="Power per channel in watts")
+    crosstalk_suppression: float = Field(default=30.0, description="Crosstalk suppression in dB")
+    wavelength_stability: float = Field(default=0.01e-9, description="Wavelength stability")
+    
+    def get_wavelength_grid(self) -> List[float]:
+        """Generate wavelength grid for WDM channels."""
+        start_wavelength = self.center_wavelength - (self.channel_count - 1) * self.channel_spacing / 2
+        return [start_wavelength + i * self.channel_spacing for i in range(self.channel_count)]
+    
+    def calculate_total_power(self) -> float:
+        """Calculate total optical power across all channels."""
+        return self.power_per_channel * self.channel_count
 
 
 class WaveguideNeuron(BaseModel):

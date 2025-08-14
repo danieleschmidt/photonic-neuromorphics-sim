@@ -49,6 +49,609 @@ class ErrorContext:
     error_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     timestamp: float = field(default_factory=time.time)
     severity: ErrorSeverity = ErrorSeverity.MEDIUM
+    error_type: str = ""
+    error_message: str = ""
+    function_name: str = ""
+    file_name: str = ""
+    line_number: int = 0
+    stack_trace: str = ""
+    system_state: Dict[str, Any] = field(default_factory=dict)
+    recovery_attempts: int = 0
+    max_recovery_attempts: int = 3
+    suggested_recovery: RecoveryStrategy = RecoveryStrategy.RETRY
+    user_data: Dict[str, Any] = field(default_factory=dict)
+    correlation_id: Optional[str] = None
+
+
+class AdvancedCircuitBreaker:
+    """
+    Advanced circuit breaker with adaptive thresholds and machine learning.
+    
+    Implements sophisticated failure detection and automatic recovery
+    with statistical analysis and predictive failure prevention.
+    """
+    
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: float = 60.0,
+        success_threshold: int = 3,
+        adaptive_threshold: bool = True,
+        enable_ml_prediction: bool = True
+    ):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.success_threshold = success_threshold
+        self.adaptive_threshold = adaptive_threshold
+        self.enable_ml_prediction = enable_ml_prediction
+        
+        # Circuit breaker state
+        self.state = "CLOSED"  # CLOSED, OPEN, HALF_OPEN
+        self.failure_count = 0
+        self.success_count = 0
+        self.last_failure_time = 0
+        
+        # Advanced features
+        self.failure_history = []
+        self.success_history = []
+        self.performance_metrics = {}
+        self.failure_patterns = {}
+        
+        # Machine learning components
+        if enable_ml_prediction:
+            self._initialize_ml_components()
+        
+        # Thread safety
+        self._lock = threading.Lock()
+        self._logger = logging.getLogger(__name__)
+    
+    def _initialize_ml_components(self):
+        """Initialize machine learning components for failure prediction."""
+        try:
+            import numpy as np
+            from sklearn.ensemble import IsolationForest
+            from collections import deque
+            
+            self.failure_predictor = IsolationForest(
+                contamination=0.1,
+                random_state=42
+            )
+            self.feature_history = deque(maxlen=1000)
+            self.prediction_enabled = True
+            
+        except ImportError:
+            self._logger.warning("scikit-learn not available, disabling ML prediction")
+            self.prediction_enabled = False
+    
+    def call(self, func: Callable, *args, **kwargs) -> Any:
+        """
+        Execute function with circuit breaker protection.
+        
+        Args:
+            func: Function to execute
+            *args: Function arguments
+            **kwargs: Function keyword arguments
+            
+        Returns:
+            Function result
+            
+        Raises:
+            CircuitBreakerOpenError: If circuit breaker is open
+        """
+        with self._lock:
+            current_time = time.time()
+            
+            # Check if we should transition from OPEN to HALF_OPEN
+            if (self.state == "OPEN" and 
+                current_time - self.last_failure_time > self.recovery_timeout):
+                self.state = "HALF_OPEN"
+                self.success_count = 0
+                self._logger.info(f"Circuit breaker transitioning to HALF_OPEN")
+            
+            # Check circuit breaker state
+            if self.state == "OPEN":
+                raise CircuitBreakerOpenError(
+                    f"Circuit breaker is OPEN. Last failure: {self.last_failure_time}"
+                )
+            
+            # Predict failure if ML is enabled
+            if self.prediction_enabled and self._predict_failure():
+                self._logger.warning("ML model predicts potential failure, increasing monitoring")
+                # Continue execution but with increased monitoring
+        
+        try:
+            # Execute the function
+            start_time = time.perf_counter()
+            result = func(*args, **kwargs)
+            execution_time = time.perf_counter() - start_time
+            
+            # Record success
+            self._record_success(execution_time)
+            
+            return result
+            
+        except Exception as e:
+            # Record failure
+            self._record_failure(e, current_time)
+            raise
+    
+    def _record_success(self, execution_time: float):
+        """Record successful execution."""
+        with self._lock:
+            self.success_count += 1
+            self.failure_count = max(0, self.failure_count - 1)  # Gradual recovery
+            
+            self.success_history.append({
+                "timestamp": time.time(),
+                "execution_time": execution_time
+            })
+            
+            # Keep history manageable
+            if len(self.success_history) > 1000:
+                self.success_history = self.success_history[-500:]
+            
+            # Update performance metrics
+            self.performance_metrics["avg_execution_time"] = execution_time
+            
+            # Update ML features
+            if self.prediction_enabled:
+                self._update_ml_features(execution_time, success=True)
+            
+            # Transition from HALF_OPEN to CLOSED if enough successes
+            if (self.state == "HALF_OPEN" and 
+                self.success_count >= self.success_threshold):
+                self.state = "CLOSED"
+                self.failure_count = 0
+                self._logger.info("Circuit breaker transitioned to CLOSED")
+    
+    def _record_failure(self, exception: Exception, current_time: float):
+        """Record failure and update circuit breaker state."""
+        with self._lock:
+            self.failure_count += 1
+            self.last_failure_time = current_time
+            
+            failure_record = {
+                "timestamp": current_time,
+                "exception_type": type(exception).__name__,
+                "exception_message": str(exception),
+                "failure_count": self.failure_count
+            }
+            self.failure_history.append(failure_record)
+            
+            # Keep history manageable
+            if len(self.failure_history) > 1000:
+                self.failure_history = self.failure_history[-500:]
+            
+            # Update ML features
+            if self.prediction_enabled:
+                self._update_ml_features(0.0, success=False, error=str(exception))
+            
+            # Adaptive threshold adjustment
+            if self.adaptive_threshold:
+                self._adjust_threshold()
+            
+            # Check if we should open the circuit
+            current_threshold = self._get_current_threshold()
+            if self.failure_count >= current_threshold:
+                self.state = "OPEN"
+                self._logger.error(f"Circuit breaker OPENED after {self.failure_count} failures")
+            elif self.state == "HALF_OPEN":
+                # Any failure in HALF_OPEN goes back to OPEN
+                self.state = "OPEN"
+                self._logger.warning("Circuit breaker returned to OPEN from HALF_OPEN")
+    
+    def _adjust_threshold(self):
+        """Dynamically adjust failure threshold based on historical patterns."""
+        if len(self.failure_history) < 10:
+            return
+        
+        # Analyze recent failure patterns
+        recent_failures = self.failure_history[-10:]
+        time_window = recent_failures[-1]["timestamp"] - recent_failures[0]["timestamp"]
+        
+        if time_window > 0:
+            failure_rate = len(recent_failures) / time_window
+            
+            # Adjust threshold based on failure rate
+            if failure_rate > 0.1:  # High failure rate
+                self.failure_threshold = max(2, self.failure_threshold - 1)
+            elif failure_rate < 0.01:  # Low failure rate
+                self.failure_threshold = min(10, self.failure_threshold + 1)
+    
+    def _get_current_threshold(self) -> int:
+        """Get current failure threshold (may be adaptive)."""
+        return self.failure_threshold
+    
+    def _update_ml_features(self, execution_time: float, success: bool, error: str = ""):
+        """Update machine learning features for failure prediction."""
+        if not self.prediction_enabled:
+            return
+        
+        try:
+            import numpy as np
+            
+            # Create feature vector
+            current_time = time.time()
+            features = [
+                execution_time,
+                self.failure_count,
+                self.success_count,
+                len(self.failure_history),
+                current_time % 86400,  # Time of day
+                int(success),
+                len(error) if error else 0
+            ]
+            
+            self.feature_history.append(features)
+            
+            # Retrain predictor periodically
+            if len(self.feature_history) >= 100 and len(self.feature_history) % 50 == 0:
+                self._retrain_predictor()
+                
+        except Exception as e:
+            self._logger.warning(f"Failed to update ML features: {e}")
+    
+    def _retrain_predictor(self):
+        """Retrain the failure prediction model."""
+        if not self.prediction_enabled or len(self.feature_history) < 50:
+            return
+        
+        try:
+            import numpy as np
+            
+            features_array = np.array(list(self.feature_history))
+            self.failure_predictor.fit(features_array)
+            self._logger.debug("Retrained failure prediction model")
+            
+        except Exception as e:
+            self._logger.warning(f"Failed to retrain predictor: {e}")
+    
+    def _predict_failure(self) -> bool:
+        """Predict if next operation might fail."""
+        if not self.prediction_enabled or len(self.feature_history) < 10:
+            return False
+        
+        try:
+            import numpy as np
+            
+            # Get recent features for prediction
+            recent_features = np.array(list(self.feature_history)[-10:])
+            latest_features = recent_features[-1:].reshape(1, -1)
+            
+            # Predict anomaly (potential failure)
+            prediction = self.failure_predictor.predict(latest_features)
+            
+            return prediction[0] == -1  # -1 indicates anomaly
+            
+        except Exception as e:
+            self._logger.warning(f"Failed to predict failure: {e}")
+            return False
+    
+    def get_metrics(self) -> Dict[str, Any]:
+        """Get circuit breaker metrics."""
+        with self._lock:
+            total_calls = len(self.success_history) + len(self.failure_history)
+            success_rate = len(self.success_history) / total_calls if total_calls > 0 else 0
+            
+            return {
+                "state": self.state,
+                "failure_count": self.failure_count,
+                "success_count": self.success_count,
+                "failure_threshold": self.failure_threshold,
+                "success_rate": success_rate,
+                "total_calls": total_calls,
+                "last_failure_time": self.last_failure_time,
+                "performance_metrics": self.performance_metrics.copy(),
+                "prediction_enabled": self.prediction_enabled
+            }
+    
+    def reset(self):
+        """Reset circuit breaker to initial state."""
+        with self._lock:
+            self.state = "CLOSED"
+            self.failure_count = 0
+            self.success_count = 0
+            self.last_failure_time = 0
+            self.failure_history.clear()
+            self.success_history.clear()
+            self._logger.info("Circuit breaker reset")
+
+
+class CircuitBreakerOpenError(Exception):
+    """Exception raised when circuit breaker is open."""
+    pass
+
+
+class DistributedErrorRecoverySystem:
+    """
+    Distributed error recovery system for multi-node photonic simulations.
+    
+    Coordinates error recovery across multiple simulation nodes and
+    implements advanced recovery strategies.
+    """
+    
+    def __init__(self, node_id: str = None):
+        self.node_id = node_id or f"node_{uuid.uuid4().hex[:8]}"
+        self.recovery_strategies = {}
+        self.error_history = []
+        self.node_health = {}
+        self.circuit_breakers = {}
+        
+        # Distributed coordination
+        self.coordination_queue = queue.Queue()
+        self.recovery_workers = []
+        self.is_running = False
+        
+        # Performance monitoring
+        self.performance_tracker = {}
+        
+        self._logger = logging.getLogger(__name__)
+        self._lock = threading.Lock()
+    
+    def register_recovery_strategy(
+        self,
+        error_type: Type[Exception],
+        strategy: Callable,
+        priority: int = 1
+    ):
+        """Register recovery strategy for specific error type."""
+        if error_type not in self.recovery_strategies:
+            self.recovery_strategies[error_type] = []
+        
+        self.recovery_strategies[error_type].append({
+            "strategy": strategy,
+            "priority": priority,
+            "success_count": 0,
+            "failure_count": 0
+        })
+        
+        # Sort by priority
+        self.recovery_strategies[error_type].sort(
+            key=lambda x: x["priority"], reverse=True
+        )
+    
+    def get_circuit_breaker(self, component_name: str) -> AdvancedCircuitBreaker:
+        """Get or create circuit breaker for component."""
+        if component_name not in self.circuit_breakers:
+            self.circuit_breakers[component_name] = AdvancedCircuitBreaker(
+                adaptive_threshold=True,
+                enable_ml_prediction=True
+            )
+        return self.circuit_breakers[component_name]
+    
+    def handle_error(
+        self,
+        error: Exception,
+        context: ErrorContext,
+        auto_recover: bool = True
+    ) -> bool:
+        """
+        Handle error with distributed recovery coordination.
+        
+        Args:
+            error: The exception that occurred
+            context: Error context information
+            auto_recover: Whether to attempt automatic recovery
+            
+        Returns:
+            True if error was recovered, False otherwise
+        """
+        error_type = type(error)
+        
+        # Update error context
+        context.error_type = error_type.__name__
+        context.error_message = str(error)
+        context.stack_trace = traceback.format_exc()
+        
+        # Log error
+        self._logger.error(f"Error handled: {context.error_id} - {error}")
+        
+        # Record error in history
+        with self._lock:
+            self.error_history.append({
+                "context": context,
+                "timestamp": time.time(),
+                "recovered": False
+            })
+        
+        if not auto_recover:
+            return False
+        
+        # Attempt recovery using registered strategies
+        return self._attempt_recovery(error, context)
+    
+    def _attempt_recovery(self, error: Exception, context: ErrorContext) -> bool:
+        """Attempt to recover from error using registered strategies."""
+        error_type = type(error)
+        
+        # Find applicable recovery strategies
+        strategies = []
+        for exc_type, strategy_list in self.recovery_strategies.items():
+            if issubclass(error_type, exc_type):
+                strategies.extend(strategy_list)
+        
+        # Sort by priority and success rate
+        strategies.sort(key=lambda x: (x["priority"], x["success_count"]), reverse=True)
+        
+        # Try each strategy
+        for strategy_info in strategies:
+            if context.recovery_attempts >= context.max_recovery_attempts:
+                self._logger.warning(
+                    f"Max recovery attempts reached for {context.error_id}"
+                )
+                break
+            
+            try:
+                context.recovery_attempts += 1
+                strategy = strategy_info["strategy"]
+                
+                self._logger.info(
+                    f"Attempting recovery {context.recovery_attempts} with {strategy.__name__}"
+                )
+                
+                result = strategy(error, context)
+                
+                if result:
+                    strategy_info["success_count"] += 1
+                    self._logger.info(f"Recovery successful for {context.error_id}")
+                    
+                    # Update error history
+                    with self._lock:
+                        for record in reversed(self.error_history):
+                            if record["context"].error_id == context.error_id:
+                                record["recovered"] = True
+                                break
+                    
+                    return True
+                else:
+                    strategy_info["failure_count"] += 1
+                    
+            except Exception as recovery_error:
+                strategy_info["failure_count"] += 1
+                self._logger.error(
+                    f"Recovery strategy failed: {recovery_error}"
+                )
+        
+        self._logger.error(f"All recovery attempts failed for {context.error_id}")
+        return False
+    
+    def start_distributed_recovery(self):
+        """Start distributed recovery worker threads."""
+        if self.is_running:
+            return
+        
+        self.is_running = True
+        
+        # Start recovery workers
+        for i in range(2):  # Two worker threads
+            worker = threading.Thread(
+                target=self._recovery_worker,
+                name=f"RecoveryWorker-{i}",
+                daemon=True
+            )
+            worker.start()
+            self.recovery_workers.append(worker)
+        
+        # Start health monitoring
+        health_monitor = threading.Thread(
+            target=self._health_monitor,
+            name="HealthMonitor",
+            daemon=True
+        )
+        health_monitor.start()
+        
+        self._logger.info("Distributed recovery system started")
+    
+    def stop_distributed_recovery(self):
+        """Stop distributed recovery system."""
+        self.is_running = False
+        
+        # Signal workers to stop
+        for _ in self.recovery_workers:
+            self.coordination_queue.put(None)
+        
+        self._logger.info("Distributed recovery system stopped")
+    
+    def _recovery_worker(self):
+        """Worker thread for handling recovery tasks."""
+        while self.is_running:
+            try:
+                task = self.coordination_queue.get(timeout=1.0)
+                if task is None:  # Shutdown signal
+                    break
+                
+                # Process recovery task
+                self._process_recovery_task(task)
+                
+            except queue.Empty:
+                continue
+            except Exception as e:
+                self._logger.error(f"Recovery worker error: {e}")
+    
+    def _health_monitor(self):
+        """Monitor system health and trigger preventive actions."""
+        while self.is_running:
+            try:
+                # Check circuit breaker health
+                for name, breaker in self.circuit_breakers.items():
+                    metrics = breaker.get_metrics()
+                    self.node_health[name] = metrics
+                    
+                    # Trigger alerts for unhealthy components
+                    if metrics["success_rate"] < 0.8:
+                        self._logger.warning(
+                            f"Component {name} health degraded: {metrics['success_rate']:.2%}"
+                        )
+                
+                # Sleep before next check
+                time.sleep(30)
+                
+            except Exception as e:
+                self._logger.error(f"Health monitor error: {e}")
+    
+    def _process_recovery_task(self, task: Dict[str, Any]):
+        """Process a recovery task from the coordination queue."""
+        task_type = task.get("type")
+        
+        if task_type == "circuit_breaker_open":
+            self._handle_circuit_breaker_open(task)
+        elif task_type == "node_failure":
+            self._handle_node_failure(task)
+        elif task_type == "performance_degradation":
+            self._handle_performance_degradation(task)
+    
+    def _handle_circuit_breaker_open(self, task: Dict[str, Any]):
+        """Handle circuit breaker opening."""
+        component = task.get("component")
+        self._logger.warning(f"Circuit breaker opened for {component}")
+        
+        # Implement recovery logic (e.g., switch to backup, reduce load)
+        # This would be customized based on specific component requirements
+    
+    def _handle_node_failure(self, task: Dict[str, Any]):
+        """Handle node failure in distributed system."""
+        failed_node = task.get("node_id")
+        self._logger.error(f"Node failure detected: {failed_node}")
+        
+        # Implement node recovery logic (e.g., restart, failover)
+    
+    def _handle_performance_degradation(self, task: Dict[str, Any]):
+        """Handle performance degradation."""
+        component = task.get("component")
+        metrics = task.get("metrics", {})
+        
+        self._logger.warning(
+            f"Performance degradation in {component}: {metrics}"
+        )
+        
+        # Implement performance recovery (e.g., scaling, optimization)
+    
+    def get_system_health(self) -> Dict[str, Any]:
+        """Get comprehensive system health report."""
+        with self._lock:
+            total_errors = len(self.error_history)
+            recovered_errors = sum(1 for record in self.error_history if record["recovered"])
+            recovery_rate = recovered_errors / total_errors if total_errors > 0 else 1.0
+            
+            recent_errors = [
+                record for record in self.error_history
+                if time.time() - record["timestamp"] < 3600  # Last hour
+            ]
+            
+            return {
+                "node_id": self.node_id,
+                "is_running": self.is_running,
+                "total_errors": total_errors,
+                "recovery_rate": recovery_rate,
+                "recent_errors": len(recent_errors),
+                "circuit_breakers": {
+                    name: breaker.get_metrics()
+                    for name, breaker in self.circuit_breakers.items()
+                },
+                "node_health": self.node_health.copy(),
+                "active_workers": len(self.recovery_workers)
+            }
+    severity: ErrorSeverity = ErrorSeverity.MEDIUM
     component: str = ""
     operation: str = ""
     function_name: str = ""

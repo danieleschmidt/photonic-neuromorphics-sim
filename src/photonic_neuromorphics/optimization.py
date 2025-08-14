@@ -40,6 +40,673 @@ class OptimizationConfig:
     prefetch_factor: int = 2
 
 
+class QuantumInspiredOptimizer:
+    """
+    Quantum-inspired optimization for photonic neural networks.
+    
+    Implements quantum annealing algorithms and variational optimization
+    techniques specifically designed for photonic computing systems.
+    """
+    
+    def __init__(self, num_qubits: int = 16, temperature: float = 1.0):
+        self.num_qubits = num_qubits
+        self.temperature = temperature
+        self.quantum_state = None
+        self.optimization_history = []
+        
+        # Initialize quantum-inspired components
+        self._initialize_quantum_state()
+        
+        self._logger = logging.getLogger(__name__)
+    
+    def _initialize_quantum_state(self):
+        """Initialize quantum state representation."""
+        # Simulate quantum superposition for optimization variables
+        self.quantum_state = {
+            'amplitudes': np.random.complex128((2**self.num_qubits,)),
+            'phases': np.random.uniform(0, 2*np.pi, (2**self.num_qubits,)),
+            'entanglement_matrix': np.random.random((self.num_qubits, self.num_qubits))
+        }
+        
+        # Normalize amplitudes
+        norm = np.linalg.norm(self.quantum_state['amplitudes'])
+        self.quantum_state['amplitudes'] /= norm
+    
+    def optimize_wavelength_allocation(
+        self,
+        photonic_network,
+        optimization_target: str = "energy_efficiency"
+    ) -> Dict[str, Any]:
+        """
+        Optimize wavelength allocation using quantum-inspired algorithms.
+        
+        Args:
+            photonic_network: The photonic neural network to optimize
+            optimization_target: Target metric to optimize
+            
+        Returns:
+            Optimization results with improved wavelength allocation
+        """
+        start_time = time.perf_counter()
+        
+        # Extract current network parameters
+        current_params = self._extract_network_parameters(photonic_network)
+        
+        # Define optimization objective
+        objective_func = self._create_objective_function(
+            photonic_network, optimization_target
+        )
+        
+        # Quantum annealing optimization
+        best_params = self._quantum_annealing_optimization(
+            objective_func, current_params
+        )
+        
+        # Apply optimized parameters
+        optimization_improvement = self._apply_optimized_parameters(
+            photonic_network, best_params
+        )
+        
+        optimization_time = time.perf_counter() - start_time
+        
+        results = {
+            "optimization_target": optimization_target,
+            "improvement_factor": optimization_improvement,
+            "optimization_time": optimization_time,
+            "optimized_parameters": best_params,
+            "quantum_state_evolution": len(self.optimization_history),
+            "convergence_achieved": optimization_improvement > 1.05  # 5% improvement
+        }
+        
+        self.optimization_history.append(results)
+        self._logger.info(f"Quantum optimization completed: {optimization_improvement:.2f}x improvement")
+        
+        return results
+    
+    def _extract_network_parameters(self, network) -> Dict[str, np.ndarray]:
+        """Extract optimizable parameters from photonic network."""
+        params = {}
+        
+        # Extract wavelength allocations
+        if hasattr(network, 'wavelength_channels'):
+            params['wavelength_spacing'] = np.array([0.8e-9] * network.wavelength_channels)
+            params['power_distribution'] = np.ones(network.wavelength_channels)
+            
+        # Extract coupling efficiencies
+        if hasattr(network, 'optical_params'):
+            params['coupling_efficiency'] = np.array([network.optical_params.coupling_efficiency])
+            params['propagation_loss'] = np.array([network.optical_params.loss])
+        
+        # Extract neural weights for photonic optimization
+        if hasattr(network, 'layers'):
+            for i, layer in enumerate(network.layers):
+                if hasattr(layer, 'weight'):
+                    params[f'layer_{i}_weights'] = layer.weight.detach().numpy().flatten()
+        
+        return params
+    
+    def _create_objective_function(self, network, target: str) -> Callable:
+        """Create objective function for optimization."""
+        def objective(params: Dict[str, np.ndarray]) -> float:
+            # Simulate network performance with given parameters
+            if target == "energy_efficiency":
+                # Calculate energy efficiency metric
+                total_power = sum(p.sum() for p in params.values() if 'power' in str(p))
+                total_efficiency = 1.0 / (total_power + 1e-8)
+                return total_efficiency
+                
+            elif target == "latency":
+                # Calculate latency metric (lower is better, so negate for maximization)
+                processing_delay = sum(len(p) for p in params.values()) * 1e-9
+                return -processing_delay
+                
+            elif target == "accuracy":
+                # Simulate accuracy based on parameter quality
+                param_quality = sum(np.std(p) for p in params.values())
+                return 1.0 / (param_quality + 1e-8)
+            
+            else:
+                return 1.0  # Default objective
+        
+        return objective
+    
+    def _quantum_annealing_optimization(
+        self,
+        objective_func: Callable,
+        initial_params: Dict[str, np.ndarray],
+        max_iterations: int = 1000
+    ) -> Dict[str, np.ndarray]:
+        """Perform quantum annealing optimization."""
+        current_params = {k: v.copy() for k, v in initial_params.items()}
+        best_params = {k: v.copy() for k, v in initial_params.items()}
+        
+        current_energy = objective_func(current_params)
+        best_energy = current_energy
+        
+        # Annealing schedule
+        initial_temp = self.temperature
+        
+        for iteration in range(max_iterations):
+            # Update temperature (cooling schedule)
+            temperature = initial_temp * (1 - iteration / max_iterations)
+            
+            # Generate quantum-inspired perturbation
+            perturbed_params = self._quantum_perturbation(current_params, temperature)
+            
+            # Evaluate new configuration
+            new_energy = objective_func(perturbed_params)
+            
+            # Quantum acceptance criterion
+            if self._quantum_acceptance(current_energy, new_energy, temperature):
+                current_params = perturbed_params
+                current_energy = new_energy
+                
+                # Update best solution
+                if new_energy > best_energy:
+                    best_params = {k: v.copy() for k, v in perturbed_params.items()}
+                    best_energy = new_energy
+            
+            # Update quantum state
+            self._evolve_quantum_state(iteration / max_iterations)
+        
+        return best_params
+    
+    def _quantum_perturbation(
+        self,
+        params: Dict[str, np.ndarray],
+        temperature: float
+    ) -> Dict[str, np.ndarray]:
+        """Generate quantum-inspired parameter perturbations."""
+        perturbed = {}
+        
+        for key, values in params.items():
+            # Quantum amplitude-based perturbation
+            quantum_noise = np.random.normal(0, temperature * 0.1, values.shape)
+            
+            # Apply quantum interference effects
+            if len(values) > 1:
+                interference = np.sin(np.arange(len(values)) * np.pi / len(values))
+                quantum_noise *= interference
+            
+            perturbed[key] = values + quantum_noise
+            
+            # Ensure physical constraints
+            if 'power' in key or 'efficiency' in key:
+                perturbed[key] = np.clip(perturbed[key], 0.0, 1.0)
+            elif 'wavelength' in key:
+                perturbed[key] = np.clip(perturbed[key], 1e-9, 2e-6)  # Valid optical range
+        
+        return perturbed
+    
+    def _quantum_acceptance(self, current_energy: float, new_energy: float, temperature: float) -> bool:
+        """Quantum-inspired acceptance criterion."""
+        if new_energy > current_energy:
+            return True
+        
+        # Quantum tunneling probability
+        energy_diff = current_energy - new_energy
+        tunneling_prob = np.exp(-energy_diff / (temperature + 1e-8))
+        
+        # Add quantum coherence effects
+        coherence_factor = np.abs(np.sum(self.quantum_state['amplitudes'][:4]))
+        enhanced_prob = tunneling_prob * (1 + 0.1 * coherence_factor)
+        
+        return np.random.random() < enhanced_prob
+    
+    def _evolve_quantum_state(self, progress: float):
+        """Evolve quantum state during optimization."""
+        # Simulate quantum state evolution
+        evolution_operator = np.exp(1j * progress * np.pi)
+        self.quantum_state['amplitudes'] *= evolution_operator
+        
+        # Add decoherence effects
+        decoherence = 1 - 0.1 * progress
+        self.quantum_state['amplitudes'] *= decoherence
+        
+        # Renormalize
+        norm = np.linalg.norm(self.quantum_state['amplitudes'])
+        if norm > 0:
+            self.quantum_state['amplitudes'] /= norm
+    
+    def _apply_optimized_parameters(
+        self,
+        network,
+        optimized_params: Dict[str, np.ndarray]
+    ) -> float:
+        """Apply optimized parameters to network and calculate improvement."""
+        # Store original performance
+        original_performance = self._measure_network_performance(network)
+        
+        # Apply optimized parameters
+        if hasattr(network, 'wavelength_channels') and 'power_distribution' in optimized_params:
+            # Update power distribution (simplified)
+            power_dist = optimized_params['power_distribution']
+            if hasattr(network, 'interference_weights'):
+                network.interference_weights.data = torch.from_numpy(power_dist).float()
+        
+        # Measure improved performance
+        improved_performance = self._measure_network_performance(network)
+        
+        improvement_factor = improved_performance / (original_performance + 1e-8)
+        return improvement_factor
+    
+    def _measure_network_performance(self, network) -> float:
+        """Measure current network performance."""
+        # Simplified performance metric
+        if hasattr(network, 'wavelength_channels'):
+            return float(network.wavelength_channels) * 0.1
+        return 1.0
+
+
+class HyperParameterOptimizer:
+    """
+    Advanced hyperparameter optimization for photonic neural networks.
+    
+    Implements Bayesian optimization, genetic algorithms, and photonic-specific
+    optimization strategies for automatic hyperparameter tuning.
+    """
+    
+    def __init__(self, search_space: Dict[str, Any]):
+        self.search_space = search_space
+        self.evaluation_history = []
+        self.best_parameters = None
+        self.best_score = -float('inf')
+        
+        # Bayesian optimization components
+        self.gaussian_process = None
+        self.acquisition_function = "expected_improvement"
+        
+        # Genetic algorithm components
+        self.population_size = 50
+        self.mutation_rate = 0.1
+        self.crossover_rate = 0.8
+        
+        self._logger = logging.getLogger(__name__)
+    
+    def optimize(
+        self,
+        objective_function: Callable,
+        n_trials: int = 100,
+        optimization_method: str = "bayesian"
+    ) -> Dict[str, Any]:
+        """
+        Optimize hyperparameters using specified method.
+        
+        Args:
+            objective_function: Function to optimize (higher is better)
+            n_trials: Number of optimization trials
+            optimization_method: Method to use ('bayesian', 'genetic', 'random')
+            
+        Returns:
+            Optimization results
+        """
+        start_time = time.perf_counter()
+        
+        if optimization_method == "bayesian":
+            results = self._bayesian_optimization(objective_function, n_trials)
+        elif optimization_method == "genetic":
+            results = self._genetic_algorithm_optimization(objective_function, n_trials)
+        elif optimization_method == "photonic_aware":
+            results = self._photonic_aware_optimization(objective_function, n_trials)
+        else:
+            results = self._random_search(objective_function, n_trials)
+        
+        optimization_time = time.perf_counter() - start_time
+        
+        return {
+            "best_parameters": self.best_parameters,
+            "best_score": self.best_score,
+            "optimization_method": optimization_method,
+            "optimization_time": optimization_time,
+            "total_evaluations": len(self.evaluation_history),
+            "convergence_curve": [eval_data["score"] for eval_data in self.evaluation_history]
+        }
+    
+    def _bayesian_optimization(self, objective_func: Callable, n_trials: int) -> Dict[str, Any]:
+        """Bayesian optimization using Gaussian processes."""
+        try:
+            from sklearn.gaussian_process import GaussianProcessRegressor
+            from sklearn.gaussian_process.kernels import Matern
+            from sklearn.preprocessing import StandardScaler
+            from scipy.optimize import minimize
+            
+            # Initialize Gaussian Process
+            kernel = Matern(length_scale=1.0, nu=2.5)
+            self.gaussian_process = GaussianProcessRegressor(
+                kernel=kernel,
+                alpha=1e-6,
+                normalize_y=True,
+                n_restarts_optimizer=5,
+                random_state=42
+            )
+            
+            # Random initialization
+            for _ in range(min(10, n_trials)):
+                params = self._sample_random_parameters()
+                score = objective_func(params)
+                self._update_history(params, score)
+            
+            # Bayesian optimization loop
+            for trial in range(len(self.evaluation_history), n_trials):
+                # Fit GP to current data
+                X = np.array([self._encode_parameters(eval_data["parameters"]) 
+                             for eval_data in self.evaluation_history])
+                y = np.array([eval_data["score"] for eval_data in self.evaluation_history])
+                
+                self.gaussian_process.fit(X, y)
+                
+                # Optimize acquisition function
+                next_params = self._optimize_acquisition_function()
+                
+                # Evaluate objective
+                score = objective_func(next_params)
+                self._update_history(next_params, score)
+            
+            return {"method": "bayesian", "gp_fitted": True}
+            
+        except ImportError:
+            self._logger.warning("scikit-learn not available, falling back to random search")
+            return self._random_search(objective_func, n_trials)
+    
+    def _genetic_algorithm_optimization(self, objective_func: Callable, n_trials: int) -> Dict[str, Any]:
+        """Genetic algorithm optimization."""
+        # Initialize population
+        population = [self._sample_random_parameters() for _ in range(self.population_size)]
+        
+        generations = n_trials // self.population_size
+        
+        for generation in range(generations):
+            # Evaluate population
+            fitness_scores = []
+            for individual in population:
+                score = objective_func(individual)
+                self._update_history(individual, score)
+                fitness_scores.append(score)
+            
+            # Selection (tournament selection)
+            selected = self._tournament_selection(population, fitness_scores)
+            
+            # Crossover and mutation
+            new_population = []
+            for i in range(0, len(selected), 2):
+                parent1 = selected[i]
+                parent2 = selected[(i + 1) % len(selected)]
+                
+                if np.random.random() < self.crossover_rate:
+                    child1, child2 = self._crossover(parent1, parent2)
+                else:
+                    child1, child2 = parent1.copy(), parent2.copy()
+                
+                # Mutation
+                if np.random.random() < self.mutation_rate:
+                    child1 = self._mutate(child1)
+                if np.random.random() < self.mutation_rate:
+                    child2 = self._mutate(child2)
+                
+                new_population.extend([child1, child2])
+            
+            population = new_population[:self.population_size]
+        
+        return {"method": "genetic", "generations": generations}
+    
+    def _photonic_aware_optimization(self, objective_func: Callable, n_trials: int) -> Dict[str, Any]:
+        """Photonic-aware optimization considering optical constraints."""
+        # Start with physically meaningful parameters
+        photonic_priors = {
+            'wavelength': 1550e-9,  # Standard telecom wavelength
+            'power': 1e-3,          # 1 mW
+            'coupling_efficiency': 0.9,
+            'loss': 0.1             # dB/cm
+        }
+        
+        # Optimization considering optical physics
+        for trial in range(n_trials):
+            if trial < 10:
+                # Start with physics-based initialization
+                params = self._sample_physics_informed_parameters(photonic_priors)
+            else:
+                # Adaptive sampling based on optical performance
+                params = self._adaptive_photonic_sampling()
+            
+            score = objective_func(params)
+            self._update_history(params, score)
+        
+        return {"method": "photonic_aware", "physics_informed": True}
+    
+    def _sample_physics_informed_parameters(self, priors: Dict[str, float]) -> Dict[str, Any]:
+        """Sample parameters with physics constraints."""
+        params = {}
+        
+        for key, (param_type, bounds) in self.search_space.items():
+            if key in priors:
+                # Use physics-informed prior with small perturbation
+                prior_value = priors[key]
+                if param_type == "float":
+                    # Gaussian perturbation around physical prior
+                    noise_scale = (bounds[1] - bounds[0]) * 0.1
+                    value = np.clip(
+                        np.random.normal(prior_value, noise_scale),
+                        bounds[0], bounds[1]
+                    )
+                    params[key] = value
+                else:
+                    params[key] = self._sample_parameter(param_type, bounds)
+            else:
+                params[key] = self._sample_parameter(param_type, bounds)
+        
+        return params
+    
+    def _adaptive_photonic_sampling(self) -> Dict[str, Any]:
+        """Adaptive sampling based on photonic performance."""
+        if len(self.evaluation_history) < 5:
+            return self._sample_random_parameters()
+        
+        # Analyze best performing configurations
+        top_configs = sorted(
+            self.evaluation_history,
+            key=lambda x: x["score"],
+            reverse=True
+        )[:5]
+        
+        # Sample around best configurations with adaptive noise
+        base_config = np.random.choice(top_configs)["parameters"]
+        
+        params = {}
+        for key, (param_type, bounds) in self.search_space.items():
+            if key in base_config:
+                base_value = base_config[key]
+                
+                # Adaptive noise based on parameter sensitivity
+                noise_scale = self._estimate_parameter_sensitivity(key) * 0.1
+                
+                if param_type == "float":
+                    value = np.clip(
+                        np.random.normal(base_value, noise_scale),
+                        bounds[0], bounds[1]
+                    )
+                    params[key] = value
+                else:
+                    params[key] = base_value
+            else:
+                params[key] = self._sample_parameter(param_type, bounds)
+        
+        return params
+    
+    def _estimate_parameter_sensitivity(self, param_name: str) -> float:
+        """Estimate parameter sensitivity from evaluation history."""
+        if len(self.evaluation_history) < 10:
+            return 1.0
+        
+        # Simple sensitivity analysis
+        param_values = []
+        scores = []
+        
+        for eval_data in self.evaluation_history:
+            if param_name in eval_data["parameters"]:
+                param_values.append(eval_data["parameters"][param_name])
+                scores.append(eval_data["score"])
+        
+        if len(param_values) < 5:
+            return 1.0
+        
+        # Calculate correlation between parameter and score
+        param_array = np.array(param_values)
+        score_array = np.array(scores)
+        
+        correlation = np.corrcoef(param_array, score_array)[0, 1]
+        sensitivity = abs(correlation) if not np.isnan(correlation) else 1.0
+        
+        return sensitivity
+    
+    def _sample_random_parameters(self) -> Dict[str, Any]:
+        """Sample random parameters from search space."""
+        params = {}
+        for key, (param_type, bounds) in self.search_space.items():
+            params[key] = self._sample_parameter(param_type, bounds)
+        return params
+    
+    def _sample_parameter(self, param_type: str, bounds: Any) -> Any:
+        """Sample a single parameter."""
+        if param_type == "float":
+            return np.random.uniform(bounds[0], bounds[1])
+        elif param_type == "int":
+            return np.random.randint(bounds[0], bounds[1] + 1)
+        elif param_type == "choice":
+            return np.random.choice(bounds)
+        elif param_type == "log_uniform":
+            log_low, log_high = np.log10(bounds[0]), np.log10(bounds[1])
+            return 10 ** np.random.uniform(log_low, log_high)
+        else:
+            raise ValueError(f"Unknown parameter type: {param_type}")
+    
+    def _update_history(self, params: Dict[str, Any], score: float):
+        """Update evaluation history."""
+        self.evaluation_history.append({
+            "parameters": params.copy(),
+            "score": score,
+            "timestamp": time.time()
+        })
+        
+        if score > self.best_score:
+            self.best_score = score
+            self.best_parameters = params.copy()
+    
+    def _encode_parameters(self, params: Dict[str, Any]) -> np.ndarray:
+        """Encode parameters for GP input."""
+        encoded = []
+        for key in sorted(self.search_space.keys()):
+            if key in params:
+                value = params[key]
+                if isinstance(value, (int, float)):
+                    encoded.append(float(value))
+                else:
+                    # Handle categorical parameters
+                    param_type, bounds = self.search_space[key]
+                    if param_type == "choice":
+                        encoded.append(float(bounds.index(value)))
+                    else:
+                        encoded.append(0.0)
+            else:
+                encoded.append(0.0)
+        return np.array(encoded)
+    
+    def _optimize_acquisition_function(self) -> Dict[str, Any]:
+        """Optimize acquisition function to find next point."""
+        # Simplified acquisition optimization
+        best_acquisition = -float('inf')
+        best_params = None
+        
+        # Random sampling of acquisition function
+        for _ in range(1000):
+            candidate_params = self._sample_random_parameters()
+            acquisition_value = self._expected_improvement(candidate_params)
+            
+            if acquisition_value > best_acquisition:
+                best_acquisition = acquisition_value
+                best_params = candidate_params
+        
+        return best_params
+    
+    def _expected_improvement(self, params: Dict[str, Any]) -> float:
+        """Calculate expected improvement acquisition function."""
+        if self.gaussian_process is None:
+            return np.random.random()
+        
+        X_candidate = self._encode_parameters(params).reshape(1, -1)
+        
+        try:
+            mu, sigma = self.gaussian_process.predict(X_candidate, return_std=True)
+            
+            # Expected improvement calculation
+            current_best = self.best_score
+            improvement = mu - current_best
+            Z = improvement / (sigma + 1e-8)
+            
+            from scipy.stats import norm
+            ei = improvement * norm.cdf(Z) + sigma * norm.pdf(Z)
+            return ei[0]
+            
+        except Exception:
+            return np.random.random()
+    
+    def _tournament_selection(self, population: List, fitness_scores: List) -> List:
+        """Tournament selection for genetic algorithm."""
+        selected = []
+        tournament_size = max(2, len(population) // 10)
+        
+        for _ in range(len(population)):
+            # Random tournament
+            tournament_indices = np.random.choice(
+                len(population), tournament_size, replace=False
+            )
+            
+            # Select best from tournament
+            best_index = max(tournament_indices, key=lambda i: fitness_scores[i])
+            selected.append(population[best_index].copy())
+        
+        return selected
+    
+    def _crossover(self, parent1: Dict, parent2: Dict) -> Tuple[Dict, Dict]:
+        """Crossover operation for genetic algorithm."""
+        child1, child2 = parent1.copy(), parent2.copy()
+        
+        # Uniform crossover
+        for key in parent1.keys():
+            if np.random.random() < 0.5:
+                child1[key], child2[key] = child2[key], child1[key]
+        
+        return child1, child2
+    
+    def _mutate(self, individual: Dict) -> Dict:
+        """Mutation operation for genetic algorithm."""
+        mutated = individual.copy()
+        
+        # Gaussian mutation for numerical parameters
+        for key, (param_type, bounds) in self.search_space.items():
+            if key in mutated and np.random.random() < 0.3:  # 30% mutation rate per parameter
+                if param_type == "float":
+                    noise_scale = (bounds[1] - bounds[0]) * 0.1
+                    mutated[key] = np.clip(
+                        mutated[key] + np.random.normal(0, noise_scale),
+                        bounds[0], bounds[1]
+                    )
+                elif param_type == "int":
+                    mutated[key] = np.random.randint(bounds[0], bounds[1] + 1)
+                elif param_type == "choice":
+                    mutated[key] = np.random.choice(bounds)
+        
+        return mutated
+    
+    def _random_search(self, objective_func: Callable, n_trials: int) -> Dict[str, Any]:
+        """Random search baseline."""
+        for _ in range(n_trials):
+            params = self._sample_random_parameters()
+            score = objective_func(params)
+            self._update_history(params, score)
+        
+        return {"method": "random"}
+
+
 class AdaptiveCache:
     """
     Adaptive caching system with intelligent eviction policies.

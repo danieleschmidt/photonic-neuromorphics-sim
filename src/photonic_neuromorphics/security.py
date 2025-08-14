@@ -47,6 +47,893 @@ class SecureSimulationSession(BaseModel):
     is_active: bool = True
     max_simulation_time: float = 1e-9
     memory_limit: int = 1024 * 1024 * 1024
+    access_token: Optional[str] = None
+    refresh_token: Optional[str] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    security_level: str = "standard"  # standard, high, critical
+    risk_score: float = 0.0
+    
+    def is_expired(self, timeout: int = 3600) -> bool:
+        """Check if session is expired."""
+        return time.time() - self.last_activity > timeout
+    
+    def update_activity(self):
+        """Update last activity timestamp."""
+        self.last_activity = time.time()
+    
+    def calculate_risk_score(self) -> float:
+        """Calculate session risk score based on various factors."""
+        risk_factors = []
+        
+        # Session age factor
+        session_age = time.time() - self.created_at
+        age_risk = min(session_age / 86400, 1.0)  # Normalize to 24 hours
+        risk_factors.append(age_risk * 0.2)
+        
+        # Activity pattern factor
+        inactivity = time.time() - self.last_activity
+        inactivity_risk = min(inactivity / 3600, 1.0)  # Normalize to 1 hour
+        risk_factors.append(inactivity_risk * 0.3)
+        
+        # Permission scope factor
+        permission_risk = len(self.permissions) / 10.0  # Assume max 10 permissions
+        risk_factors.append(min(permission_risk, 1.0) * 0.2)
+        
+        # Security level factor
+        security_level_risk = {"critical": 0.1, "high": 0.3, "standard": 0.5}
+        risk_factors.append(security_level_risk.get(self.security_level, 0.5) * 0.3)
+        
+        self.risk_score = sum(risk_factors)
+        return self.risk_score
+
+
+class AdvancedThreatDetectionSystem:
+    """
+    Advanced threat detection system with behavioral analysis and ML-based anomaly detection.
+    
+    Implements zero-trust security principles with continuous monitoring,
+    behavioral analysis, and adaptive threat response.
+    """
+    
+    def __init__(self, enable_ml_detection: bool = True):
+        self.enable_ml_detection = enable_ml_detection
+        self.threat_patterns = {}
+        self.behavioral_baselines = {}
+        self.threat_history = []
+        self.active_sessions = {}
+        self.security_events = []
+        
+        # Machine learning components
+        if enable_ml_detection:
+            self._initialize_ml_detection()
+        
+        # Threat scoring
+        self.threat_thresholds = {
+            "low": 0.3,
+            "medium": 0.6,
+            "high": 0.8,
+            "critical": 0.95
+        }
+        
+        # Rate limiting
+        self.rate_limiters = {}
+        
+        self._logger = logging.getLogger(__name__)
+        self._lock = threading.Lock()
+    
+    def _initialize_ml_detection(self):
+        """Initialize ML-based threat detection components."""
+        try:
+            import numpy as np
+            from sklearn.ensemble import IsolationForest
+            from sklearn.cluster import DBSCAN
+            from collections import deque
+            
+            # Anomaly detection for behavioral analysis
+            self.anomaly_detector = IsolationForest(
+                contamination=0.05,  # 5% expected anomalies
+                random_state=42
+            )
+            
+            # Clustering for pattern recognition
+            self.pattern_analyzer = DBSCAN(
+                eps=0.3,
+                min_samples=5
+            )
+            
+            # Feature history for training
+            self.behavior_features = deque(maxlen=10000)
+            self.ml_initialized = True
+            
+        except ImportError:
+            self._logger.warning("scikit-learn not available, disabling ML threat detection")
+            self.ml_initialized = False
+    
+    def analyze_request(
+        self,
+        request_data: Dict[str, Any],
+        session: SecureSimulationSession
+    ) -> Dict[str, Any]:
+        """
+        Analyze incoming request for threats and anomalies.
+        
+        Args:
+            request_data: Request data to analyze
+            session: User session
+            
+        Returns:
+            Threat analysis results
+        """
+        analysis_start = time.perf_counter()
+        
+        # Extract features for analysis
+        features = self._extract_security_features(request_data, session)
+        
+        # Perform multi-layered threat analysis
+        threat_score = 0.0
+        threat_indicators = []
+        
+        # 1. Pattern-based detection
+        pattern_threats = self._detect_pattern_threats(features)
+        threat_score += pattern_threats["score"]
+        threat_indicators.extend(pattern_threats["indicators"])
+        
+        # 2. Behavioral analysis
+        behavioral_threats = self._analyze_behavioral_anomalies(features, session)
+        threat_score += behavioral_threats["score"]
+        threat_indicators.extend(behavioral_threats["indicators"])
+        
+        # 3. Rate limiting check
+        rate_limit_threats = self._check_rate_limits(session)
+        threat_score += rate_limit_threats["score"]
+        threat_indicators.extend(rate_limit_threats["indicators"])
+        
+        # 4. ML-based anomaly detection
+        if self.ml_initialized:
+            ml_threats = self._ml_anomaly_detection(features)
+            threat_score += ml_threats["score"]
+            threat_indicators.extend(ml_threats["indicators"])
+        
+        # 5. Input validation threats
+        validation_threats = self._detect_input_validation_threats(request_data)
+        threat_score += validation_threats["score"]
+        threat_indicators.extend(validation_threats["indicators"])
+        
+        # Normalize threat score
+        threat_score = min(threat_score, 1.0)
+        
+        # Determine threat level
+        threat_level = self._determine_threat_level(threat_score)
+        
+        analysis_time = time.perf_counter() - analysis_start
+        
+        # Record security event
+        security_event = {
+            "timestamp": time.time(),
+            "session_id": session.session_id,
+            "threat_score": threat_score,
+            "threat_level": threat_level,
+            "indicators": threat_indicators,
+            "analysis_time": analysis_time,
+            "request_features": features
+        }
+        
+        with self._lock:
+            self.security_events.append(security_event)
+            # Keep events manageable
+            if len(self.security_events) > 10000:
+                self.security_events = self.security_events[-5000:]
+        
+        return {
+            "threat_score": threat_score,
+            "threat_level": threat_level,
+            "indicators": threat_indicators,
+            "analysis_time": analysis_time,
+            "recommended_action": self._recommend_action(threat_level),
+            "allow_request": threat_score < self.threat_thresholds["high"]
+        }
+    
+    def _extract_security_features(
+        self,
+        request_data: Dict[str, Any],
+        session: SecureSimulationSession
+    ) -> Dict[str, Any]:
+        """Extract security-relevant features from request."""
+        features = {
+            # Request characteristics
+            "request_size": len(str(request_data)),
+            "param_count": len(request_data),
+            "has_file_upload": any("file" in str(k).lower() for k in request_data.keys()),
+            "has_script_content": any("<script" in str(v) for v in request_data.values() if isinstance(v, str)),
+            "has_sql_patterns": any(
+                sql_keyword in str(v).lower() 
+                for v in request_data.values() 
+                if isinstance(v, str)
+                for sql_keyword in ["select", "insert", "update", "delete", "union", "drop"]
+            ),
+            
+            # Session characteristics
+            "session_age": time.time() - session.created_at,
+            "session_activity": time.time() - session.last_activity,
+            "permission_count": len(session.permissions),
+            "session_risk_score": session.risk_score,
+            
+            # Timing characteristics
+            "hour_of_day": int((time.time() % 86400) / 3600),
+            "day_of_week": int(time.time() / 86400) % 7,
+            
+            # Pattern characteristics
+            "numeric_params": sum(1 for v in request_data.values() if isinstance(v, (int, float))),
+            "string_params": sum(1 for v in request_data.values() if isinstance(v, str)),
+            "list_params": sum(1 for v in request_data.values() if isinstance(v, list)),
+        }
+        
+        return features
+    
+    def _detect_pattern_threats(self, features: Dict[str, Any]) -> Dict[str, Any]:
+        """Detect threats based on known attack patterns."""
+        threat_score = 0.0
+        indicators = []
+        
+        # SQL injection patterns
+        if features.get("has_sql_patterns", False):
+            threat_score += 0.7
+            indicators.append("SQL injection patterns detected")
+        
+        # XSS patterns
+        if features.get("has_script_content", False):
+            threat_score += 0.6
+            indicators.append("Script content detected (potential XSS)")
+        
+        # Unusual request size
+        if features.get("request_size", 0) > 1024 * 1024:  # 1MB
+            threat_score += 0.4
+            indicators.append("Unusually large request size")
+        
+        # Excessive parameters
+        if features.get("param_count", 0) > 100:
+            threat_score += 0.3
+            indicators.append("Excessive parameter count")
+        
+        # Suspicious timing
+        hour = features.get("hour_of_day", 12)
+        if hour < 6 or hour > 22:  # Outside business hours
+            threat_score += 0.1
+            indicators.append("Request outside normal business hours")
+        
+        return {
+            "score": min(threat_score, 1.0),
+            "indicators": indicators
+        }
+    
+    def _analyze_behavioral_anomalies(
+        self,
+        features: Dict[str, Any],
+        session: SecureSimulationSession
+    ) -> Dict[str, Any]:
+        """Analyze behavioral anomalies compared to baseline."""
+        threat_score = 0.0
+        indicators = []
+        
+        user_id = session.user_id or "anonymous"
+        
+        # Check if we have behavioral baseline for this user
+        if user_id not in self.behavioral_baselines:
+            self.behavioral_baselines[user_id] = {
+                "request_sizes": [],
+                "param_counts": [],
+                "activity_patterns": [],
+                "typical_hours": set()
+            }
+        
+        baseline = self.behavioral_baselines[user_id]
+        
+        # Analyze request size anomaly
+        request_size = features.get("request_size", 0)
+        if baseline["request_sizes"]:
+            avg_size = sum(baseline["request_sizes"]) / len(baseline["request_sizes"])
+            if request_size > avg_size * 5:  # 5x larger than average
+                threat_score += 0.3
+                indicators.append("Request size significantly above user baseline")
+        
+        # Analyze parameter count anomaly
+        param_count = features.get("param_count", 0)
+        if baseline["param_counts"]:
+            avg_params = sum(baseline["param_counts"]) / len(baseline["param_counts"])
+            if param_count > avg_params * 3:  # 3x more parameters
+                threat_score += 0.2
+                indicators.append("Parameter count above user baseline")
+        
+        # Analyze activity pattern anomaly
+        current_hour = features.get("hour_of_day", 12)
+        if baseline["typical_hours"] and current_hour not in baseline["typical_hours"]:
+            threat_score += 0.2
+            indicators.append("Activity outside typical hours for user")
+        
+        # Update baseline (with limits to prevent memory issues)
+        baseline["request_sizes"].append(request_size)
+        if len(baseline["request_sizes"]) > 1000:
+            baseline["request_sizes"] = baseline["request_sizes"][-500:]
+        
+        baseline["param_counts"].append(param_count)
+        if len(baseline["param_counts"]) > 1000:
+            baseline["param_counts"] = baseline["param_counts"][-500:]
+        
+        baseline["typical_hours"].add(current_hour)
+        
+        return {
+            "score": min(threat_score, 1.0),
+            "indicators": indicators
+        }
+    
+    def _check_rate_limits(self, session: SecureSimulationSession) -> Dict[str, Any]:
+        """Check rate limiting violations."""
+        threat_score = 0.0
+        indicators = []
+        
+        user_id = session.user_id or session.session_id
+        current_time = time.time()
+        
+        # Initialize rate limiter for user
+        if user_id not in self.rate_limiters:
+            self.rate_limiters[user_id] = {
+                "requests": [],
+                "last_reset": current_time
+            }
+        
+        rate_limiter = self.rate_limiters[user_id]
+        
+        # Clean old requests (sliding window of 1 hour)
+        rate_limiter["requests"] = [
+            req_time for req_time in rate_limiter["requests"]
+            if current_time - req_time < 3600
+        ]
+        
+        # Add current request
+        rate_limiter["requests"].append(current_time)
+        
+        # Check rate limits
+        requests_per_hour = len(rate_limiter["requests"])
+        
+        if requests_per_hour > 1000:  # High rate
+            threat_score += 0.8
+            indicators.append(f"Excessive request rate: {requests_per_hour}/hour")
+        elif requests_per_hour > 500:  # Medium rate
+            threat_score += 0.4
+            indicators.append(f"Elevated request rate: {requests_per_hour}/hour")
+        
+        # Check burst rate (requests per minute)
+        recent_requests = [
+            req_time for req_time in rate_limiter["requests"]
+            if current_time - req_time < 60
+        ]
+        
+        if len(recent_requests) > 100:  # High burst
+            threat_score += 0.6
+            indicators.append(f"High burst rate: {len(recent_requests)}/minute")
+        
+        return {
+            "score": min(threat_score, 1.0),
+            "indicators": indicators
+        }
+    
+    def _ml_anomaly_detection(self, features: Dict[str, Any]) -> Dict[str, Any]:
+        """ML-based anomaly detection."""
+        threat_score = 0.0
+        indicators = []
+        
+        if not self.ml_initialized:
+            return {"score": 0.0, "indicators": []}
+        
+        try:
+            import numpy as np
+            
+            # Convert features to numerical array
+            feature_vector = [
+                features.get("request_size", 0),
+                features.get("param_count", 0),
+                features.get("session_age", 0),
+                features.get("session_activity", 0),
+                features.get("permission_count", 0),
+                features.get("hour_of_day", 12),
+                features.get("numeric_params", 0),
+                features.get("string_params", 0),
+                int(features.get("has_sql_patterns", False)),
+                int(features.get("has_script_content", False))
+            ]
+            
+            # Add to feature history
+            self.behavior_features.append(feature_vector)
+            
+            # Retrain model periodically
+            if len(self.behavior_features) >= 100 and len(self.behavior_features) % 100 == 0:
+                self._retrain_anomaly_detector()
+            
+            # Predict anomaly if we have enough data
+            if len(self.behavior_features) >= 50:
+                features_array = np.array([feature_vector])
+                prediction = self.anomaly_detector.predict(features_array)
+                anomaly_score = self.anomaly_detector.decision_function(features_array)[0]
+                
+                if prediction[0] == -1:  # Anomaly detected
+                    threat_score = min(abs(anomaly_score) / 2.0, 0.7)  # Scale to 0-0.7
+                    indicators.append(f"ML anomaly detected (score: {anomaly_score:.3f})")
+        
+        except Exception as e:
+            self._logger.warning(f"ML anomaly detection failed: {e}")
+        
+        return {
+            "score": threat_score,
+            "indicators": indicators
+        }
+    
+    def _detect_input_validation_threats(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Detect input validation threats."""
+        threat_score = 0.0
+        indicators = []
+        
+        for key, value in request_data.items():
+            if isinstance(value, str):
+                # Check for common injection patterns
+                suspicious_patterns = [
+                    r"<script[^>]*>",  # Script tags
+                    r"javascript:",     # JavaScript protocol
+                    r"vbscript:",      # VBScript protocol
+                    r"data:",          # Data URI
+                    r"file://",        # File protocol
+                    r"\.\./",          # Directory traversal
+                    r"cmd\.exe",       # Command execution
+                    r"powershell",     # PowerShell
+                    r"/etc/passwd",    # System file access
+                    r"SELECT.*FROM",   # SQL injection
+                    r"UNION.*SELECT",  # SQL union injection
+                ]
+                
+                for pattern in suspicious_patterns:
+                    import re
+                    if re.search(pattern, value, re.IGNORECASE):
+                        threat_score += 0.5
+                        indicators.append(f"Suspicious pattern in {key}: {pattern}")
+                        break
+                
+                # Check for extremely long strings (potential buffer overflow)
+                if len(value) > 10000:
+                    threat_score += 0.3
+                    indicators.append(f"Extremely long input in {key}")
+                
+                # Check for binary content in text fields
+                if any(ord(c) < 32 and c not in '\t\n\r' for c in value):
+                    threat_score += 0.4
+                    indicators.append(f"Binary content in text field {key}")
+        
+        return {
+            "score": min(threat_score, 1.0),
+            "indicators": indicators
+        }
+    
+    def _retrain_anomaly_detector(self):
+        """Retrain the anomaly detection model."""
+        if not self.ml_initialized or len(self.behavior_features) < 50:
+            return
+        
+        try:
+            import numpy as np
+            
+            features_array = np.array(list(self.behavior_features))
+            self.anomaly_detector.fit(features_array)
+            self._logger.debug("Retrained anomaly detection model")
+            
+        except Exception as e:
+            self._logger.warning(f"Failed to retrain anomaly detector: {e}")
+    
+    def _determine_threat_level(self, threat_score: float) -> str:
+        """Determine threat level based on score."""
+        if threat_score >= self.threat_thresholds["critical"]:
+            return "critical"
+        elif threat_score >= self.threat_thresholds["high"]:
+            return "high"
+        elif threat_score >= self.threat_thresholds["medium"]:
+            return "medium"
+        elif threat_score >= self.threat_thresholds["low"]:
+            return "low"
+        else:
+            return "none"
+    
+    def _recommend_action(self, threat_level: str) -> str:
+        """Recommend action based on threat level."""
+        recommendations = {
+            "none": "allow",
+            "low": "allow_with_monitoring",
+            "medium": "require_additional_auth",
+            "high": "block_with_review",
+            "critical": "block_immediately"
+        }
+        return recommendations.get(threat_level, "block_immediately")
+    
+    def get_security_metrics(self) -> Dict[str, Any]:
+        """Get comprehensive security metrics."""
+        with self._lock:
+            total_events = len(self.security_events)
+            
+            if total_events == 0:
+                return {
+                    "total_events": 0,
+                    "threat_distribution": {},
+                    "average_threat_score": 0.0,
+                    "blocked_requests": 0,
+                    "active_sessions": len(self.active_sessions)
+                }
+            
+            # Calculate threat distribution
+            threat_levels = [event["threat_level"] for event in self.security_events]
+            threat_distribution = {}
+            for level in ["none", "low", "medium", "high", "critical"]:
+                threat_distribution[level] = threat_levels.count(level)
+            
+            # Calculate average threat score
+            avg_threat_score = sum(event["threat_score"] for event in self.security_events) / total_events
+            
+            # Count blocked requests
+            blocked_requests = sum(
+                1 for event in self.security_events
+                if event["threat_score"] >= self.threat_thresholds["high"]
+            )
+            
+            # Recent activity (last hour)
+            recent_events = [
+                event for event in self.security_events
+                if time.time() - event["timestamp"] < 3600
+            ]
+            
+            return {
+                "total_events": total_events,
+                "recent_events": len(recent_events),
+                "threat_distribution": threat_distribution,
+                "average_threat_score": avg_threat_score,
+                "blocked_requests": blocked_requests,
+                "block_rate": blocked_requests / total_events,
+                "active_sessions": len(self.active_sessions),
+                "ml_detection_enabled": self.ml_initialized,
+                "behavioral_profiles": len(self.behavioral_baselines),
+                "rate_limited_users": len(self.rate_limiters)
+            }
+
+
+class ZeroTrustSecurityManager:
+    """
+    Zero-trust security manager implementing comprehensive security controls.
+    
+    Enforces zero-trust principles: never trust, always verify.
+    Implements continuous authentication, authorization, and monitoring.
+    """
+    
+    def __init__(self, config: SecurityConfig):
+        self.config = config
+        self.threat_detector = AdvancedThreatDetectionSystem()
+        self.active_sessions = {}
+        self.security_policies = {}
+        self.audit_log = []
+        
+        # Initialize default security policies
+        self._initialize_security_policies()
+        
+        self._logger = logging.getLogger(__name__)
+        self._lock = threading.Lock()
+    
+    def _initialize_security_policies(self):
+        """Initialize default security policies."""
+        self.security_policies = {
+            "require_session_validation": True,
+            "require_input_sanitization": True,
+            "enable_rate_limiting": True,
+            "enable_threat_detection": True,
+            "max_session_duration": 3600,  # 1 hour
+            "require_reauth_on_privilege_escalation": True,
+            "enable_behavioral_monitoring": True,
+            "audit_all_operations": True
+        }
+    
+    def create_secure_session(
+        self,
+        user_id: Optional[str] = None,
+        permissions: List[str] = None,
+        security_level: str = "standard",
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
+    ) -> SecureSimulationSession:
+        """Create a new secure session with comprehensive validation."""
+        session = SecureSimulationSession(
+            user_id=user_id,
+            permissions=permissions or [],
+            security_level=security_level,
+            ip_address=ip_address,
+            user_agent=user_agent
+        )
+        
+        # Calculate initial risk score
+        session.calculate_risk_score()
+        
+        # Store session
+        with self._lock:
+            self.active_sessions[session.session_id] = session
+            self.threat_detector.active_sessions[session.session_id] = session
+        
+        # Audit log
+        self._audit_log("session_created", {
+            "session_id": session.session_id,
+            "user_id": user_id,
+            "security_level": security_level,
+            "permissions": permissions
+        })
+        
+        self._logger.info(f"Created secure session: {session.session_id}")
+        return session
+    
+    def validate_request(
+        self,
+        session_id: str,
+        request_data: Dict[str, Any],
+        required_permissions: List[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Validate request with comprehensive security checks.
+        
+        Implements zero-trust validation: every request is untrusted
+        until proven otherwise through multiple security layers.
+        """
+        validation_start = time.perf_counter()
+        
+        # 1. Session validation
+        session_validation = self._validate_session(session_id)
+        if not session_validation["valid"]:
+            return {
+                "valid": False,
+                "reason": session_validation["reason"],
+                "threat_level": "high",
+                "recommended_action": "block_immediately"
+            }
+        
+        session = session_validation["session"]
+        
+        # 2. Permission validation
+        if required_permissions:
+            permission_validation = self._validate_permissions(session, required_permissions)
+            if not permission_validation["valid"]:
+                return {
+                    "valid": False,
+                    "reason": permission_validation["reason"],
+                    "threat_level": "medium",
+                    "recommended_action": "require_additional_auth"
+                }
+        
+        # 3. Input sanitization and validation
+        input_validation = self._validate_and_sanitize_input(request_data)
+        if not input_validation["valid"]:
+            return {
+                "valid": False,
+                "reason": input_validation["reason"],
+                "threat_level": "high",
+                "recommended_action": "block_with_review",
+                "sanitized_input": input_validation.get("sanitized_data")
+            }
+        
+        # 4. Threat detection analysis
+        threat_analysis = self.threat_detector.analyze_request(request_data, session)
+        
+        # 5. Update session activity
+        session.update_activity()
+        
+        validation_time = time.perf_counter() - validation_start
+        
+        # 6. Make final decision
+        is_valid = (
+            session_validation["valid"] and
+            input_validation["valid"] and
+            threat_analysis["allow_request"]
+        )
+        
+        # 7. Audit log
+        self._audit_log("request_validated", {
+            "session_id": session_id,
+            "valid": is_valid,
+            "threat_score": threat_analysis["threat_score"],
+            "threat_level": threat_analysis["threat_level"],
+            "validation_time": validation_time
+        })
+        
+        return {
+            "valid": is_valid,
+            "session": session,
+            "threat_analysis": threat_analysis,
+            "validation_time": validation_time,
+            "sanitized_input": input_validation.get("sanitized_data", request_data)
+        }
+    
+    def _validate_session(self, session_id: str) -> Dict[str, Any]:
+        """Validate session exists and is still valid."""
+        with self._lock:
+            if session_id not in self.active_sessions:
+                return {
+                    "valid": False,
+                    "reason": "Session not found",
+                    "session": None
+                }
+            
+            session = self.active_sessions[session_id]
+        
+        # Check if session is expired
+        if session.is_expired(self.config.session_timeout):
+            with self._lock:
+                del self.active_sessions[session_id]
+            return {
+                "valid": False,
+                "reason": "Session expired",
+                "session": None
+            }
+        
+        # Check if session is active
+        if not session.is_active:
+            return {
+                "valid": False,
+                "reason": "Session deactivated",
+                "session": None
+            }
+        
+        return {
+            "valid": True,
+            "reason": "Session valid",
+            "session": session
+        }
+    
+    def _validate_permissions(
+        self,
+        session: SecureSimulationSession,
+        required_permissions: List[str]
+    ) -> Dict[str, Any]:
+        """Validate session has required permissions."""
+        missing_permissions = [
+            perm for perm in required_permissions
+            if perm not in session.permissions
+        ]
+        
+        if missing_permissions:
+            return {
+                "valid": False,
+                "reason": f"Missing permissions: {missing_permissions}",
+                "missing_permissions": missing_permissions
+            }
+        
+        return {
+            "valid": True,
+            "reason": "Permissions validated"
+        }
+    
+    def _validate_and_sanitize_input(self, request_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate and sanitize input data."""
+        sanitized_data = {}
+        validation_errors = []
+        
+        for key, value in request_data.items():
+            try:
+                # Size validation
+                if isinstance(value, str) and len(value) > self.config.max_file_size:
+                    validation_errors.append(f"Input {key} exceeds maximum size")
+                    continue
+                
+                # Type validation and sanitization
+                if isinstance(value, str):
+                    sanitized_value = self._sanitize_string(value)
+                    sanitized_data[key] = sanitized_value
+                elif isinstance(value, (int, float)):
+                    # Validate numeric ranges
+                    if abs(value) > 1e12:  # Prevent numerical overflow
+                        validation_errors.append(f"Numeric value {key} out of safe range")
+                        continue
+                    sanitized_data[key] = value
+                elif isinstance(value, (list, dict)):
+                    # Recursive validation for complex types
+                    if isinstance(value, dict):
+                        nested_validation = self._validate_and_sanitize_input(value)
+                        if not nested_validation["valid"]:
+                            validation_errors.extend(nested_validation["errors"])
+                            continue
+                        sanitized_data[key] = nested_validation["sanitized_data"]
+                    else:
+                        sanitized_data[key] = value  # Lists handled separately if needed
+                else:
+                    sanitized_data[key] = value
+                    
+            except Exception as e:
+                validation_errors.append(f"Validation error for {key}: {str(e)}")
+        
+        return {
+            "valid": len(validation_errors) == 0,
+            "sanitized_data": sanitized_data,
+            "errors": validation_errors,
+            "reason": "; ".join(validation_errors) if validation_errors else "Input validated"
+        }
+    
+    def _sanitize_string(self, value: str) -> str:
+        """Sanitize string input to prevent injection attacks."""
+        import html
+        import re
+        
+        # HTML entity encoding
+        sanitized = html.escape(value)
+        
+        # Remove or escape potentially dangerous patterns
+        dangerous_patterns = [
+            (r'<script[^>]*>.*?</script>', ''),  # Remove script tags
+            (r'javascript:', 'removed:'),         # Remove javascript protocol
+            (r'vbscript:', 'removed:'),          # Remove vbscript protocol
+            (r'data:', 'removed:'),              # Remove data URI
+            (r'file://', 'removed://'),          # Remove file protocol
+        ]
+        
+        for pattern, replacement in dangerous_patterns:
+            sanitized = re.sub(pattern, replacement, sanitized, flags=re.IGNORECASE)
+        
+        return sanitized
+    
+    def _audit_log(self, event_type: str, event_data: Dict[str, Any]):
+        """Add entry to audit log."""
+        if not self.config.enable_audit_logging:
+            return
+        
+        audit_entry = {
+            "timestamp": time.time(),
+            "event_type": event_type,
+            "event_data": event_data,
+            "correlation_id": event_data.get("session_id")
+        }
+        
+        with self._lock:
+            self.audit_log.append(audit_entry)
+            # Keep audit log manageable
+            if len(self.audit_log) > 100000:
+                self.audit_log = self.audit_log[-50000:]
+        
+        self._logger.info(f"Security audit: {event_type} - {event_data}")
+    
+    def get_security_dashboard(self) -> Dict[str, Any]:
+        """Get comprehensive security dashboard data."""
+        with self._lock:
+            active_session_count = len(self.active_sessions)
+            
+            # Calculate session risk distribution
+            risk_distribution = {"low": 0, "medium": 0, "high": 0}
+            for session in self.active_sessions.values():
+                risk_score = session.calculate_risk_score()
+                if risk_score < 0.3:
+                    risk_distribution["low"] += 1
+                elif risk_score < 0.7:
+                    risk_distribution["medium"] += 1
+                else:
+                    risk_distribution["high"] += 1
+            
+            # Recent audit events
+            recent_audit_events = [
+                event for event in self.audit_log
+                if time.time() - event["timestamp"] < 3600  # Last hour
+            ]
+        
+        # Get threat detection metrics
+        threat_metrics = self.threat_detector.get_security_metrics()
+        
+        return {
+            "active_sessions": active_session_count,
+            "session_risk_distribution": risk_distribution,
+            "recent_audit_events": len(recent_audit_events),
+            "threat_detection_metrics": threat_metrics,
+            "security_policies": self.security_policies.copy(),
+            "system_health": {
+                "threat_detection_enabled": True,
+                "behavioral_monitoring_enabled": True,
+                "rate_limiting_enabled": True,
+                "audit_logging_enabled": self.config.enable_audit_logging
+            }
+        }
     
     def __init__(self, **data):
         super().__init__(**data)

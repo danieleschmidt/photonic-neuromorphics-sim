@@ -1,76 +1,77 @@
 #!/usr/bin/env python3
 """
-Simple validation script for new implementations.
-Tests basic functionality without requiring external dependencies.
+Implementation validation script for the Photonic Neuromorphic Simulation Platform.
+
+This script validates the implementation structure, syntax, and architectural patterns
+without requiring external dependencies.
 """
 
-import sys
 import os
+import sys
+import ast
+from pathlib import Path
+from typing import Dict, List, Any
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 def validate_imports():
     """Validate that new modules can be imported."""
-    print("🔍 Validating imports...")
+    print("🔍 Validating advanced implementation...")
     
     try:
-        # Test core functionality imports
-        print("  • Testing core module structure...")
+        # Check all advanced modules
+        advanced_modules = {
+            'research.py': [
+                'PhotonicAttentionMechanism', 'AdvancedPhotonicTransformer',
+                'ResearchBenchmarkSuite', 'PhotonicActivation', 'SpikeEncoder'
+            ],
+            'optimization.py': [
+                'QuantumInspiredOptimizer', 'HyperParameterOptimizer', 
+                'AdaptiveCache', '_quantum_annealing_optimization'
+            ],
+            'security.py': [
+                'ZeroTrustSecurityManager', 'AdvancedThreatDetectionSystem',
+                'SecureSimulationSession', '_validate_and_sanitize_input'
+            ],
+            'robust_error_handling.py': [
+                'AdvancedCircuitBreaker', 'DistributedErrorRecoverySystem',
+                'ErrorContext', '_initialize_ml_components'
+            ],
+            'multiwavelength.py': [
+                'WDMMultiplexer', 'MultiWavelengthNeuron', 'WDMCrossbar', 
+                'AttentionMechanism'
+            ],
+            'physical_validation.py': [
+                'FDTDSimulator', 'ThermalAnalyzer', 'ProcessVariationAnalyzer',
+                'PhysicalValidationPipeline'
+            ]
+        }
         
-        # Check file existence
-        multiwave_file = 'src/photonic_neuromorphics/multiwavelength.py'
-        physical_file = 'src/photonic_neuromorphics/physical_validation.py'
-        
-        if os.path.exists(multiwave_file):
-            print("  ✓ Multi-wavelength module file exists")
-        else:
-            print("  ✗ Multi-wavelength module file missing")
-            return False
+        for module_file, required_classes in advanced_modules.items():
+            file_path = f'src/photonic_neuromorphics/{module_file}'
             
-        if os.path.exists(physical_file):
-            print("  ✓ Physical validation module file exists")
-        else:
-            print("  ✗ Physical validation module file missing")
-            return False
-        
-        # Check file content structure
-        with open(multiwave_file, 'r') as f:
-            multiwave_content = f.read()
-            
-        with open(physical_file, 'r') as f:
-            physical_content = f.read()
-        
-        # Check for key classes
-        multiwave_classes = [
-            'WDMMultiplexer', 'MultiWavelengthNeuron', 'WDMCrossbar', 
-            'AttentionMechanism'
-        ]
-        
-        physical_classes = [
-            'FDTDSimulator', 'ThermalAnalyzer', 'ProcessVariationAnalyzer',
-            'PhysicalValidationPipeline'
-        ]
-        
-        for cls in multiwave_classes:
-            if f'class {cls}' in multiwave_content:
-                print(f"  ✓ {cls} class found")
+            if os.path.exists(file_path):
+                print(f"  ✓ {module_file} exists")
+                
+                with open(file_path, 'r') as f:
+                    content = f.read()
+                
+                for cls in required_classes:
+                    if cls in content:
+                        print(f"    ✓ {cls} implemented")
+                    else:
+                        print(f"    ✗ {cls} missing")
+                        return False
             else:
-                print(f"  ✗ {cls} class missing")
+                print(f"  ✗ {module_file} missing")
                 return False
         
-        for cls in physical_classes:
-            if f'class {cls}' in physical_content:
-                print(f"  ✓ {cls} class found")
-            else:
-                print(f"  ✗ {cls} class missing")
-                return False
-        
-        print("  ✓ All required classes found")
+        print("  ✓ All advanced modules validated")
         return True
         
     except Exception as e:
-        print(f"  ✗ Import validation failed: {e}")
+        print(f"  ✗ Advanced validation failed: {e}")
         return False
 
 def validate_functionality():

@@ -45,6 +45,19 @@ from .robust_error_handling import (
     ErrorHandler, CircuitBreaker, robust_operation, error_recovery_context,
     create_robust_error_system
 )
+from .xr_agent_mesh import (
+    XRAgentMesh, XRAgent, SpatialAnchorAgent, ObjectTrackerAgent,
+    PhotonicXRProcessor, XRCoordinate, XRMessage, XRDataType, XRAgentType,
+    create_xr_demo_mesh, run_xr_mesh_simulation
+)
+from .xr_spatial_computing import (
+    PhotonicSpatialProcessor, SpatialMemoryManager, SpatialObject, SpatialRegion,
+    create_spatial_computing_demo, run_spatial_computing_demo
+)
+from .xr_visualization import (
+    PhotonicInteractionProcessor, XRVisualizationEngine, XRInteraction, HapticFeedback,
+    InteractionType, RenderingMode, run_xr_visualization_demo, create_interaction_demo_sequence
+)
 
 __all__ = [
     # Core functionality
@@ -121,4 +134,35 @@ __all__ = [
     "robust_operation",
     "error_recovery_context",
     "create_robust_error_system",
+    
+    # XR Agent Mesh
+    "XRAgentMesh",
+    "XRAgent", 
+    "SpatialAnchorAgent",
+    "ObjectTrackerAgent",
+    "PhotonicXRProcessor",
+    "XRCoordinate",
+    "XRMessage",
+    "XRDataType",
+    "XRAgentType",
+    "create_xr_demo_mesh",
+    "run_xr_mesh_simulation",
+    
+    # XR Spatial Computing
+    "PhotonicSpatialProcessor",
+    "SpatialMemoryManager",
+    "SpatialObject",
+    "SpatialRegion",
+    "create_spatial_computing_demo",
+    "run_spatial_computing_demo",
+    
+    # XR Visualization
+    "PhotonicInteractionProcessor",
+    "XRVisualizationEngine",
+    "XRInteraction",
+    "HapticFeedback",
+    "InteractionType",
+    "RenderingMode",
+    "run_xr_visualization_demo",
+    "create_interaction_demo_sequence",
 ]

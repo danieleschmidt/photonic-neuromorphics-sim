@@ -58,6 +58,28 @@ from .xr_visualization import (
     PhotonicInteractionProcessor, XRVisualizationEngine, XRInteraction, HapticFeedback,
     InteractionType, RenderingMode, run_xr_visualization_demo, create_interaction_demo_sequence
 )
+from .autonomous_learning import (
+    AutonomousLearningFramework, MetaLearningOptimizer, EvolutionaryOptimizer,
+    AdaptiveOpticalTuner, LearningMetrics, create_autonomous_learning_demo,
+    run_autonomous_learning_demo
+)
+from .quantum_photonic_interface import (
+    QuantumPhotonicProcessor, PhotonicQubit, HybridQuantumPhotonic, QuantumState,
+    create_quantum_photonic_demo, run_quantum_photonic_demo
+)
+from .realtime_adaptive_optimization import (
+    RealTimeOptimizer, RealTimeProfiler, AdaptiveParameterTuner, PerformanceMetrics,
+    create_realtime_optimization_demo, run_realtime_optimization_demo, run_realtime_demo
+)
+from .distributed_computing import (
+    NodeManager, DistributedPhotonicSimulator, NodeInfo, ComputeTask,
+    create_distributed_demo_cluster, run_distributed_computing_demo
+)
+from .advanced_analytics import (
+    AdvancedAnalyticsFramework, PerformanceAnalyzer, OptimizationAnalyzer,
+    SystemHealthAnalyzer, AnalyticsMetric, InsightReport,
+    create_advanced_analytics_demo, run_advanced_analytics_demo
+)
 
 __all__ = [
     # Core functionality
@@ -165,4 +187,47 @@ __all__ = [
     "RenderingMode",
     "run_xr_visualization_demo",
     "create_interaction_demo_sequence",
+    
+    # Autonomous Learning
+    "AutonomousLearningFramework",
+    "MetaLearningOptimizer", 
+    "EvolutionaryOptimizer",
+    "AdaptiveOpticalTuner",
+    "create_autonomous_learning_demo",
+    "run_autonomous_learning_demo",
+    
+    # Quantum-Photonic Interface
+    "QuantumPhotonicProcessor",
+    "PhotonicQubit",
+    "HybridQuantumPhotonic",
+    "QuantumState",
+    "create_quantum_photonic_demo",
+    "run_quantum_photonic_demo",
+    
+    # Real-Time Adaptive Optimization
+    "RealTimeOptimizer",
+    "RealTimeProfiler", 
+    "AdaptiveParameterTuner",
+    "PerformanceMetrics",
+    "create_realtime_optimization_demo",
+    "run_realtime_optimization_demo",
+    "run_realtime_demo",
+    
+    # Distributed Computing
+    "NodeManager",
+    "DistributedPhotonicSimulator",
+    "NodeInfo",
+    "ComputeTask",
+    "create_distributed_demo_cluster",
+    "run_distributed_computing_demo",
+    
+    # Advanced Analytics
+    "AdvancedAnalyticsFramework",
+    "PerformanceAnalyzer",
+    "OptimizationAnalyzer", 
+    "SystemHealthAnalyzer",
+    "AnalyticsMetric",
+    "InsightReport",
+    "create_advanced_analytics_demo",
+    "run_advanced_analytics_demo",
 ]

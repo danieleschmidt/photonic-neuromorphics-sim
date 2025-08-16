@@ -264,13 +264,17 @@ class PhotonicSNN(nn.Module):
                     
                     # Create weight matrices for synaptic connections
                     if i > 0:  # Skip input layer
-                        weight_matrix = nn.Parameter(
-                            torch.randn(topology[i-1], layer_size) * 0.1
-                        )
-                        self.layers.append(weight_matrix)
+                        weight_layer = nn.Linear(topology[i-1], layer_size)
+                        
+                        # Initialize weights with small random values
+                        with torch.no_grad():
+                            weight_layer.weight.data = torch.randn(layer_size, topology[i-1]) * 0.1
+                            weight_layer.bias.data.zero_()
+                        
+                        self.layers.append(weight_layer)
                         
                         # Validate weight initialization
-                        if torch.any(torch.isnan(weight_matrix)) or torch.any(torch.isinf(weight_matrix)):
+                        if torch.any(torch.isnan(weight_layer.weight)) or torch.any(torch.isinf(weight_layer.weight)):
                             raise ValidationError("weight_matrix", "NaN/Inf values", "finite numbers")
         
         except Exception as e:
@@ -359,17 +363,18 @@ class PhotonicSNN(nn.Module):
                         continue
                     
                     # Process through each layer
-                    for layer_idx, weight_matrix in enumerate(self.layers):
+                    for layer_idx, weight_layer in enumerate(self.layers):
                         try:
                             prev_activity = layer_activities[-1]
-                            current_layer_spikes = torch.zeros(weight_matrix.shape[1])
+                            
+                            # Apply linear transformation
+                            linear_output = weight_layer(prev_activity)
+                            current_layer_spikes = torch.zeros_like(linear_output)
                             
                             # Process each neuron in current layer
-                            for neuron_idx in range(weight_matrix.shape[1]):
-                                # Calculate weighted optical input
-                                optical_input = torch.sum(
-                                    prev_activity * weight_matrix[:, neuron_idx]
-                                ).item()
+                            for neuron_idx in range(len(linear_output)):
+                                # Get optical input from linear layer
+                                optical_input = linear_output[neuron_idx].item()
                                 optical_input = max(0, optical_input * self.optical_params.power)
                                 
                                 # Safety check for extreme values
@@ -467,7 +472,9 @@ def encode_to_spikes(data: np.ndarray, duration: float = 100e-9, dt: float = 1e-
     spike_train = torch.zeros(time_steps, len(data.flatten()))
     
     # Rate coding: higher values -> higher spike rates
-    normalized_data = (data.flatten() - data.min()) / (data.max() - data.min() + 1e-8)
+    data_flat = data.flatten()
+    normalized_data = (data_flat - data_flat.min()) / (data_flat.max() - data_flat.min() + 1e-8)
+    normalized_data = torch.from_numpy(normalized_data).float()  # Convert to torch tensor
     
     for t in range(time_steps):
         # Poisson spike generation

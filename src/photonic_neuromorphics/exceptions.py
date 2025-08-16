@@ -206,6 +206,15 @@ class ValidationError(PhotonicNeuromorphicsException):
         super().__init__(message, details)
 
 
+class SecurityError(PhotonicNeuromorphicsException):
+    """Security-related errors."""
+    
+    def __init__(self, message: str, security_context: Optional[Dict[str, Any]] = None):
+        details = security_context or {}
+        details["error_type"] = "security_error"
+        super().__init__(message, details)
+
+
 class ConfigurationError(PhotonicNeuromorphicsException):
     """Configuration file or parameter errors."""
     

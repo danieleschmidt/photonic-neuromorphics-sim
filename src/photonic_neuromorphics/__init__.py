@@ -80,6 +80,16 @@ from .advanced_analytics import (
     SystemHealthAnalyzer, AnalyticsMetric, InsightReport,
     create_advanced_analytics_demo, run_advanced_analytics_demo
 )
+from .research import (
+    QuantumPhotonicNeuromorphicProcessor, OpticalInterferenceProcessor,
+    StatisticalValidationFramework, create_quantum_photonic_experiment,
+    run_breakthrough_algorithm_benchmark, demonstrate_breakthrough_research,
+    register_experiment, get_experiment_comparison
+)
+from .advanced_benchmarks import (
+    AdvancedBenchmarkSuite, BenchmarkConfig, BenchmarkResult,
+    run_breakthrough_benchmark_suite
+)
 
 __all__ = [
     # Core functionality
@@ -230,4 +240,20 @@ __all__ = [
     "InsightReport",
     "create_advanced_analytics_demo",
     "run_advanced_analytics_demo",
+    
+    # Breakthrough Research Algorithms
+    "QuantumPhotonicNeuromorphicProcessor",
+    "OpticalInterferenceProcessor",
+    "StatisticalValidationFramework",
+    "create_quantum_photonic_experiment",
+    "run_breakthrough_algorithm_benchmark",
+    "demonstrate_breakthrough_research",
+    "register_experiment",
+    "get_experiment_comparison",
+    
+    # Advanced Benchmarking
+    "AdvancedBenchmarkSuite",
+    "BenchmarkConfig", 
+    "BenchmarkResult",
+    "run_breakthrough_benchmark_suite",
 ]

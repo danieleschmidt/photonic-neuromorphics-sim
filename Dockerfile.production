@@ -4,7 +4,7 @@
 # ========================================
 # Stage 1: Base Python environment
 # ========================================
-FROM python:3.13-slim as base
+FROM python:3.13.7-slim as base
 
 # Set build arguments
 ARG BUILD_DATE
@@ -190,7 +190,7 @@ CMD ["--help"]
 # ========================================
 # Stage 6: Minimal runtime (alternative)
 # ========================================
-FROM python:3.13-alpine as minimal
+FROM python:3.13.7-alpine as minimal
 
 # Install minimal runtime dependencies
 RUN apk add --no-cache \

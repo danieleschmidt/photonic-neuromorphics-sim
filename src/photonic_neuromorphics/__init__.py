@@ -91,6 +91,25 @@ from .advanced_benchmarks import (
     run_breakthrough_benchmark_suite
 )
 
+# BREAKTHROUGH RESEARCH ALGORITHMS - Novel Contributions
+from .breakthrough_temporal_coherence import (
+    TemporalCoherentInterferenceProcessor, TemporalCoherenceParameters,
+    CoherenceMetrics, create_breakthrough_tcpin_demo, run_tcpin_breakthrough_benchmark
+)
+from .breakthrough_wavelength_entanglement import (
+    DistributedWavelengthEntangledProcessor, QuantumEntanglementParameters,
+    EntanglementMetrics, create_breakthrough_dwenp_demo, run_dwenp_breakthrough_benchmark
+)
+from .breakthrough_metamaterial_learning import (
+    SelfOrganizingPhotonicMetamaterial, MetamaterialParameters,
+    LearningMetrics as MetamaterialLearningMetrics, create_breakthrough_sopnm_demo,
+    run_sopnm_breakthrough_benchmark
+)
+from .breakthrough_experimental_framework import (
+    BreakthroughExperimentalFramework, ExperimentalConfiguration, ExperimentalResults,
+    ComparativeAnalysis, run_complete_breakthrough_validation, create_optimized_experimental_config
+)
+
 __all__ = [
     # Core functionality
     "PhotonicSNN",
@@ -256,4 +275,34 @@ __all__ = [
     "BenchmarkConfig", 
     "BenchmarkResult",
     "run_breakthrough_benchmark_suite",
+    
+    # BREAKTHROUGH RESEARCH ALGORITHMS - Novel Contributions
+    # Temporal-Coherent Photonic Interference Networks (TCPIN)
+    "TemporalCoherentInterferenceProcessor",
+    "TemporalCoherenceParameters",
+    "CoherenceMetrics", 
+    "create_breakthrough_tcpin_demo",
+    "run_tcpin_breakthrough_benchmark",
+    
+    # Distributed Wavelength-Entangled Neural Processing (DWENP)
+    "DistributedWavelengthEntangledProcessor",
+    "QuantumEntanglementParameters",
+    "EntanglementMetrics",
+    "create_breakthrough_dwenp_demo", 
+    "run_dwenp_breakthrough_benchmark",
+    
+    # Self-Organizing Photonic Neural Metamaterials (SOPNM)
+    "SelfOrganizingPhotonicMetamaterial",
+    "MetamaterialParameters",
+    "MetamaterialLearningMetrics",
+    "create_breakthrough_sopnm_demo",
+    "run_sopnm_breakthrough_benchmark",
+    
+    # Breakthrough Experimental Framework
+    "BreakthroughExperimentalFramework",
+    "ExperimentalConfiguration",
+    "ExperimentalResults",
+    "ComparativeAnalysis", 
+    "run_complete_breakthrough_validation",
+    "create_optimized_experimental_config",
 ]

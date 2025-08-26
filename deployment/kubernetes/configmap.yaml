@@ -1,0 +1,243 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: photonic-config
+  namespace: photonic-neuromorphics
+  labels:
+    app: photonic-sim
+    component: config
+data:
+  # Application configuration
+  app.yaml: |
+    # Photonic Neuromorphics Application Configuration
+    application:
+      name: "Photonic Neuromorphics Simulation"
+      version: "1.0.0"
+      environment: "production"
+      debug: false
+      
+    # Server configuration
+    server:
+      host: "0.0.0.0"
+      port: 8080
+      ssl_port: 8443
+      workers: 4
+      timeout: 300
+      keep_alive: 2
+      
+    # Quantum processing configuration
+    quantum:
+      entanglement_depth: 10
+      temporal_window: 0.001
+      coherence_time: 0.1
+      fidelity_threshold: 0.95
+      
+    # Photonic parameters
+    photonic:
+      wavelength: 1550e-9
+      propagation_loss: 0.1
+      coupling_efficiency: 0.9
+      detector_efficiency: 0.8
+      
+    # Security configuration
+    security:
+      quantum_key_distribution: true
+      post_quantum_crypto: true
+      encryption_algorithm: "CRYSTALS-Kyber"
+      key_rotation_interval: 3600
+      
+    # Performance configuration
+    performance:
+      cache_enabled: true
+      cache_ttl: 3600
+      prefetch_enabled: true
+      optimization_level: "high"
+      
+    # Monitoring configuration
+    monitoring:
+      metrics_enabled: true
+      metrics_port: 9090
+      health_check_interval: 30
+      log_level: "INFO"
+
+  # Logging configuration
+  logging.yaml: |
+    version: 1
+    disable_existing_loggers: false
+    
+    formatters:
+      standard:
+        format: '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+        datefmt: '%Y-%m-%d %H:%M:%S'
+      json:
+        class: 'pythonjsonlogger.jsonlogger.JsonFormatter'
+        format: '%(asctime)s %(levelname)s %(name)s %(message)s'
+    
+    handlers:
+      console:
+        class: logging.StreamHandler
+        level: INFO
+        formatter: standard
+        stream: ext://sys.stdout
+      
+      file:
+        class: logging.handlers.RotatingFileHandler
+        level: INFO
+        formatter: json
+        filename: /app/logs/photonic.log
+        maxBytes: 10485760  # 10MB
+        backupCount: 5
+        encoding: utf8
+    
+    loggers:
+      photonic_neuromorphics:
+        level: INFO
+        handlers: [console, file]
+        propagate: false
+      
+      quantum:
+        level: DEBUG
+        handlers: [console, file]
+        propagate: false
+    
+    root:
+      level: INFO
+      handlers: [console]
+
+  # Prometheus configuration
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        cluster: 'photonic-neuromorphics'
+        environment: 'production'
+    
+    rule_files:
+      - "/etc/prometheus/rules/*.yml"
+    
+    scrape_configs:
+    - job_name: 'photonic-sim'
+      kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names:
+          - photonic-neuromorphics
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: true
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
+      - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+        action: replace
+        regex: ([^:]+)(?::\d+)?;(\d+)
+        replacement: $1:$2
+        target_label: __address__
+      - action: labelmap
+        regex: __meta_kubernetes_pod_label_(.+)
+      - source_labels: [__meta_kubernetes_namespace]
+        action: replace
+        target_label: kubernetes_namespace
+      - source_labels: [__meta_kubernetes_pod_name]
+        action: replace
+        target_label: kubernetes_pod_name
+    
+    - job_name: 'kubernetes-apiservers'
+      kubernetes_sd_configs:
+      - role: endpoints
+      scheme: https
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+      bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      relabel_configs:
+      - source_labels: [__meta_kubernetes_namespace, __meta_kubernetes_service_name, __meta_kubernetes_endpoint_port_name]
+        action: keep
+        regex: default;kubernetes;https
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+  namespace: photonic-neuromorphics
+  labels:
+    app: redis
+    component: config
+data:
+  redis.conf: |
+    # Redis configuration for Photonic Neuromorphics
+    bind 0.0.0.0
+    port 6379
+    timeout 0
+    tcp-keepalive 300
+    
+    # Memory management
+    maxmemory 1gb
+    maxmemory-policy allkeys-lru
+    
+    # Persistence
+    save 900 1
+    save 300 10
+    save 60 10000
+    
+    # Security
+    requirepass ${REDIS_PASSWORD}
+    
+    # Logging
+    loglevel notice
+    logfile ""
+    
+    # Performance
+    hz 10
+    tcp-backlog 511
+    
+    # Network
+    timeout 0
+    tcp-keepalive 300
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: photonic-neuromorphics
+  labels:
+    app: postgres
+    component: config
+data:
+  postgresql.conf: |
+    # PostgreSQL configuration for Photonic Neuromorphics
+    
+    # Connection settings
+    listen_addresses = '*'
+    port = 5432
+    max_connections = 200
+    
+    # Memory settings
+    shared_buffers = 256MB
+    effective_cache_size = 1GB
+    work_mem = 4MB
+    maintenance_work_mem = 64MB
+    
+    # Checkpoint settings
+    checkpoint_completion_target = 0.9
+    wal_buffers = 16MB
+    
+    # Query planner
+    random_page_cost = 1.1
+    effective_io_concurrency = 200
+    
+    # Logging
+    log_destination = 'stderr'
+    logging_collector = on
+    log_directory = '/var/log/postgresql'
+    log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+    log_min_duration_statement = 1000
+    
+    # Security
+    ssl = on
+    ssl_cert_file = '/etc/ssl/certs/server.crt'
+    ssl_key_file = '/etc/ssl/private/server.key'

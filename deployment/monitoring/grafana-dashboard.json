@@ -1,0 +1,331 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "Photonic Neuromorphics - Production Dashboard",
+    "tags": ["photonic", "neuromorphics", "quantum", "monitoring"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "30s",
+    "schemaVersion": 30,
+    "version": 1,
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
+    },
+    "templating": {
+      "list": [
+        {
+          "name": "environment",
+          "type": "custom",
+          "options": [
+            {
+              "text": "Production",
+              "value": "production",
+              "selected": true
+            },
+            {
+              "text": "Staging",
+              "value": "staging",
+              "selected": false
+            }
+          ]
+        },
+        {
+          "name": "instance",
+          "type": "query",
+          "query": "label_values(up{job=\"photonic-neuromorphics\"}, instance)",
+          "refresh": 1,
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*"
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "name": "Deployments",
+          "datasource": "Prometheus",
+          "enable": true,
+          "expr": "changes(process_start_time_seconds{job=\"photonic-neuromorphics\"}[1m]) > 0",
+          "iconColor": "green",
+          "tags": ["deployment"]
+        }
+      ]
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Application Health Overview",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "up{job=\"photonic-neuromorphics\", instance=~\"$instance\"}",
+            "legendFormat": "{{instance}} - Health Status",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "thresholds"},
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": 0},
+                {"color": "green", "value": 1}
+              ]
+            },
+            "mappings": [
+              {"options": {"0": {"text": "DOWN"}}, "type": "value"},
+              {"options": {"1": {"text": "UP"}}, "type": "value"}
+            ]
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Request Rate",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(photonic_http_requests_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "{{method}} {{status_code}}",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {"label": "Requests/sec", "min": 0},
+          {"show": false}
+        ],
+        "xAxis": {"show": true}
+      },
+      {
+        "id": 3,
+        "title": "Response Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(photonic_http_request_duration_seconds_bucket{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "95th percentile",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(photonic_http_request_duration_seconds_bucket{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "50th percentile",
+            "refId": "B"
+          }
+        ],
+        "yAxes": [
+          {"label": "Response Time (s)", "min": 0},
+          {"show": false}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Quantum Processing Metrics",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "rate(photonic_quantum_operations_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Quantum Operations/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "photonic_quantum_fidelity{instance=~\"$instance\"}",
+            "legendFormat": "Quantum Fidelity",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(photonic_entanglement_events_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Entanglement Events/sec",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Photonic Simulation Performance",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "rate(photonic_simulation_duration_seconds_sum{instance=~\"$instance\"}[5m]) / rate(photonic_simulation_duration_seconds_count{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Avg Simulation Time",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(photonic_photons_processed_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Photons Processed/sec",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Cache Performance",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+        "targets": [
+          {
+            "expr": "rate(photonic_cache_hits_total{instance=~\"$instance\"}[5m]) / (rate(photonic_cache_hits_total{instance=~\"$instance\"}[5m]) + rate(photonic_cache_misses_total{instance=~\"$instance\"}[5m])) * 100",
+            "legendFormat": "Cache Hit Rate %",
+            "refId": "A"
+          },
+          {
+            "expr": "photonic_cache_size_bytes{instance=~\"$instance\"} / (1024*1024*1024)",
+            "legendFormat": "Cache Size (GB)",
+            "refId": "B"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Resource Utilization",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 32},
+        "targets": [
+          {
+            "expr": "rate(process_cpu_seconds_total{instance=~\"$instance\"}[5m]) * 100",
+            "legendFormat": "CPU Usage %",
+            "refId": "A"
+          },
+          {
+            "expr": "process_resident_memory_bytes{instance=~\"$instance\"} / (1024*1024*1024)",
+            "legendFormat": "Memory Usage (GB)",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(process_open_fds{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Open File Descriptors",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "id": 8,
+        "title": "Error Rates",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+        "targets": [
+          {
+            "expr": "rate(photonic_http_requests_total{status_code=~\"5..\", instance=~\"$instance\"}[5m])",
+            "legendFormat": "5xx Errors/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(photonic_http_requests_total{status_code=~\"4..\", instance=~\"$instance\"}[5m])",
+            "legendFormat": "4xx Errors/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(photonic_quantum_errors_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Quantum Errors/sec",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Security Metrics",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+        "targets": [
+          {
+            "expr": "rate(photonic_security_threats_detected_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Threats Detected/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "rate(photonic_authentication_failures_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Auth Failures/sec",
+            "refId": "B"
+          },
+          {
+            "expr": "photonic_quantum_key_rotations_total{instance=~\"$instance\"}",
+            "legendFormat": "Key Rotations",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Database Performance",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 48},
+        "targets": [
+          {
+            "expr": "rate(photonic_database_queries_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Database Queries/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(photonic_database_query_duration_seconds_bucket{instance=~\"$instance\"}[5m]))",
+            "legendFormat": "95th percentile query time",
+            "refId": "B"
+          },
+          {
+            "expr": "photonic_database_connections_active{instance=~\"$instance\"}",
+            "legendFormat": "Active Connections",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Neuromorphic Processing",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 56},
+        "targets": [
+          {
+            "expr": "rate(photonic_spikes_processed_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Spikes Processed/sec",
+            "refId": "A"
+          },
+          {
+            "expr": "photonic_network_efficiency{instance=~\"$instance\"} * 100",
+            "legendFormat": "Network Efficiency %",
+            "refId": "B"
+          },
+          {
+            "expr": "rate(photonic_synaptic_updates_total{instance=~\"$instance\"}[5m])",
+            "legendFormat": "Synaptic Updates/sec",
+            "refId": "C"
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "System Alerts",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 56},
+        "targets": [
+          {
+            "expr": "ALERTS{instance=~\"$instance\"}",
+            "format": "table",
+            "refId": "A"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {"__name__": true, "job": true},
+              "indexByName": {
+                "alertname": 0,
+                "alertstate": 1,
+                "instance": 2,
+                "severity": 3
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

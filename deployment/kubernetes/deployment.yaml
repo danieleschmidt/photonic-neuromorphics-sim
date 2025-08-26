@@ -1,0 +1,159 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: photonic-sim-deployment
+  namespace: photonic-neuromorphics
+  labels:
+    app: photonic-sim
+    version: v1
+    environment: production
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+spec:
+  replicas: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: photonic-sim
+  template:
+    metadata:
+      labels:
+        app: photonic-sim
+        version: v1
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: photonic-sim-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: photonic-sim
+        image: photonic-neuromorphics:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        - containerPort: 8443
+          name: https
+          protocol: TCP
+        - containerPort: 9090
+          name: metrics
+          protocol: TCP
+        env:
+        - name: PHOTONIC_ENV
+          value: "production"
+        - name: PHOTONIC_LOG_LEVEL
+          value: "INFO"
+        - name: PHOTONIC_REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: photonic-secrets
+              key: redis-url
+        - name: PHOTONIC_POSTGRES_URL
+          valueFrom:
+            secretKeyRef:
+              name: photonic-secrets
+              key: postgres-url
+        - name: PHOTONIC_PROMETHEUS_URL
+          value: "http://prometheus-service:9090"
+        - name: QUANTUM_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: photonic-secrets
+              key: quantum-encryption-key
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+            ephemeral-storage: "10Gi"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+            ephemeral-storage: "20Gi"
+        volumeMounts:
+        - name: photonic-data
+          mountPath: /app/data
+        - name: photonic-logs
+          mountPath: /app/logs
+        - name: photonic-tmp
+          mountPath: /app/tmp
+        - name: config-volume
+          mountPath: /app/config
+          readOnly: true
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /startup
+            port: 8080
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+      volumes:
+      - name: photonic-data
+        persistentVolumeClaim:
+          claimName: photonic-data-pvc
+      - name: photonic-logs
+        persistentVolumeClaim:
+          claimName: photonic-logs-pvc
+      - name: photonic-tmp
+        emptyDir:
+          sizeLimit: "1Gi"
+      - name: config-volume
+        configMap:
+          name: photonic-config
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        node-type: compute
+      tolerations:
+      - key: "node-type"
+        operator: "Equal"
+        value: "compute"
+        effect: "NoSchedule"
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - photonic-sim
+              topologyKey: kubernetes.io/hostname
+      terminationGracePeriodSeconds: 30

@@ -34,7 +34,7 @@ opentelemetry-instrumentation-redis>=0.39b0,<1.0.0
 opentelemetry-exporter-prometheus>=1.12.0rc1,<2.0.0
 
 # Logging and structured logging
-structlog>=23.1.0,<24.0.0
+structlog>=23.1.0,<26.0.0
 python-json-logger>=2.0.0,<3.0.0
 
 # Security and cryptography

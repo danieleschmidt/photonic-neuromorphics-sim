@@ -57,7 +57,7 @@ marshmallow-dataclass>=8.5.0,<9.0.0
 
 # Utilities
 click>=8.1.0,<9.0.0
-rich>=13.0.0,<14.0.0
+rich>=13.0.0,<15.0.0
 typer>=0.9.0,<1.0.0
 
 # Production WSGI/ASGI server

@@ -38,7 +38,7 @@ structlog>=23.1.0,<24.0.0
 python-json-logger>=2.0.0,<3.0.0
 
 # Security and cryptography
-cryptography>=41.0.0,<42.0.0
+cryptography>=41.0.0,<47.0.0
 pyjwt>=2.7.0,<3.0.0
 passlib[bcrypt]>=1.7.0,<2.0.0
 python-multipart>=0.0.6,<1.0.0

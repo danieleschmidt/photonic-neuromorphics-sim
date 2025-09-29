@@ -84,7 +84,7 @@ redis>=4.5.0,<5.0.0  # Duplicate, but needed for celery
 aiosmtplib>=2.0.0,<3.0.0
 
 # Quantum computing libraries (optional, production-ready versions)
-qiskit>=0.43.0,<1.0.0
+qiskit>=0.43.0,<3.0.0
 cirq>=1.1.0,<2.0.0
 
 # Machine learning inference (production optimized)
